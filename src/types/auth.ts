@@ -18,4 +18,5 @@ export type LoginResponse = {
   user: User;
   message: string;
   error: any;
+  success: any;
 };

@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       const data = await loginRequest(payload);
 
       // Normalize failure modes (handle both throw and non-throw returns)
-      if (!data || data.success === false) {
+      if (!data || data?.success === false) {
         const apiMsg =
           (data && (data.message || data.error)) ||
           "Authentication failed. Please try again.";

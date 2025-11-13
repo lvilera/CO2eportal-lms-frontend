@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getCurrentUser } from "../utils/token";
 
-export default function LoginPage() {
+export default function Index() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
 
