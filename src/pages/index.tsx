@@ -1,9 +1,9 @@
-import { useAuth } from "@/context/AuthContext";
-import { getCurrentUser } from "@/utils/token";
 import { Lock, LogIn, Mail } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { getCurrentUser } from "../utils/token";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const currentUser = getCurrentUser();
-    if (isAuthenticated) {
+    if (isAuthenticated && currentUser) {
       if (currentUser.role == "admin") {
         router.push("/admin");
       } else if (currentUser.role == "instructor") {
@@ -35,20 +35,24 @@ export default function LoginPage() {
       setErr("Email and password are required.");
       return;
     }
+
     setLoading(true);
     try {
       await login(form);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // Axios-style
+      const maybeAny = error as any;
       const msg =
-        error?.response?.data?.message ||
-        error?.message ||
+        maybeAny?.response?.data?.message || // most APIs
+        maybeAny?.response?.data?.error || // some APIs
+        maybeAny?.response?.message || // your previous attempt
+        maybeAny?.message || // generic Error
         "Authentication failed. Please try again.";
-      setErr(msg);
+      setErr(String(msg));
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <>
       <Head>
@@ -99,19 +103,30 @@ export default function LoginPage() {
                   <div className="mt-1 relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
-                      type="password"
+                      type={showPw ? "text" : "password"}
                       required
                       value={form.password}
                       onChange={(e) =>
                         setForm((p) => ({ ...p, password: e.target.value }))
                       }
-                      className="w-full pl-10 rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
+                      className="w-full pl-10 pr-10 rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
                       placeholder="••••••••"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((p) => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xs"
+                    >
+                      {showPw ? "Hide" : "Show"}
+                    </button>
                   </div>
                 </div>
 
-                {err && <p className="text-sm text-rose-600">{err}</p>}
+                {err && (
+                  <div className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 rounded-lg p-2">
+                    {err}
+                  </div>
+                )}
 
                 <button
                   type="submit"

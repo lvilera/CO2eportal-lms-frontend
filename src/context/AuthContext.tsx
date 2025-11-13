@@ -40,20 +40,32 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   const login = useCallback(
     async (payload: LoginPayload) => {
       const data = await loginRequest(payload);
+
+      // Normalize failure modes (handle both throw and non-throw returns)
+      if (!data || data.success === false) {
+        const apiMsg =
+          (data && (data.message || data.error)) ||
+          "Authentication failed. Please try again.";
+        throw new Error(apiMsg);
+      }
+
+      // Validate required fields
+      if (!data.accessToken || !data.refreshToken || !data.user) {
+        throw new Error("Invalid login response from server.");
+      }
+
       setAccessToken(data.accessToken);
       setRefreshToken(data.refreshToken);
       setUser(data.user);
       setCurrentUserState(data.user);
-      console.log(data);
-      if (data.user.role == "admin") {
+
+      if (data.user.role === "admin") {
         router.push("/admin");
-      } else if (data.user.role == "instructor") {
+      } else if (data.user.role === "instructor") {
         router.push("/instructor");
       } else {
         router.push("/student");
       }
-      // redirect based on role if you like:
-      //router.push("/dashboard");
     },
     [router]
   );

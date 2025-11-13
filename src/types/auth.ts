@@ -16,4 +16,6 @@ export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
   user: User;
+  message: string;
+  error: any;
 };

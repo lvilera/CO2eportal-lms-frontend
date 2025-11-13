@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 
 export default function Student() {
-  const { user, logout } = useAuth();
+  const { currentUser, logout } = useAuth();
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 p-8">
       <div className="max-w-4xl mx-auto">
@@ -18,9 +18,9 @@ export default function Student() {
           <p className="text-slate-700">
             Signed in as{" "}
             <span className="font-medium">
-              {user?.firstName} {user?.lastName}
+              {currentUser?.firstName} {currentUser?.lastName}
             </span>{" "}
-            ({user?.email})
+            ({currentUser?.email})
           </p>
         </div>
       </div>
