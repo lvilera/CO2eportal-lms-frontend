@@ -10,7 +10,7 @@ type FormState = {
   firstName: string;
   lastName: string;
   email: string;
-  role: "user" | "instructor" | "instructor";
+  role: "user" | "admin" | "instructor";
   isActive: boolean;
 };
 
@@ -97,12 +97,13 @@ export default function EditStudent() {
       await apiRequest.patch(`/users/${id}`, payload);
       originalRef.current = payload;
       setForm(payload);
-      if (form?.role == "instructor") {
+
+      // Fixed the duplicate condition - only check once
+      if (form.role === "instructor") {
         router.push("/instructor/users/instructors");
-      } else if (form.role == "instructor") {
-        router.push("/instructor/users/instructors");
+      } else {
+        router.push("/instructor/users/students");
       }
-      router.push("/instructor/users/students");
     } catch (err) {
       console.error(err);
     } finally {
@@ -214,7 +215,7 @@ export default function EditStudent() {
               >
                 <option value="user">Student</option>
                 <option value="instructor">Instructor</option>
-                <option value="instructor">Instructor</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
 
