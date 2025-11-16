@@ -7,6 +7,10 @@ let refreshQueue: Array<(token: string | null) => void> = [];
 const apiRequest: AxiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
   withCredentials: false, // set true only if your API uses cookie auth
+
+  headers: {
+    "Content-Type": "application/json",
+  },
   timeout: 20000,
 });
 
