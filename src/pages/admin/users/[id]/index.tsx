@@ -153,7 +153,7 @@ export default function EditStudent() {
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/admin/users")}
+                onClick={() => router.back()}
                 className="px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-700 hover:bg-gray-50 dark:hover:bg-neutral-800"
               >
                 Back

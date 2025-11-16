@@ -1,6 +1,7 @@
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import apiRequest from "@/lib/axios";
 import {
+  Cable,
   Loader2,
   MoreVertical,
   Pencil,
@@ -152,6 +153,13 @@ export default function CoursesIndex() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Link>
+                        <Link
+                          href={`/admin/courses/${c._id}/modules`}
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800"
+                          title="Add Module"
+                        >
+                          <Cable className="h-4 w-4" />
+                        </Link>
                         <button
                           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 text-red-600"
                           title="Delete"
@@ -166,6 +174,7 @@ export default function CoursesIndex() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
+
                         <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800">
                           <MoreVertical className="h-4 w-4" />
                         </button>
