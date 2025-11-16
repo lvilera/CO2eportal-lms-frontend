@@ -33,7 +33,8 @@ export default function NewModule() {
 
     setSaving(true);
     try {
-      await apiRequest.post(`/courses/${courseId}/modules`, {
+      await apiRequest.post(`/modules`, {
+        courseId,
         title: form.title,
         description: form.description || "",
         position: Number(form.position) || 0,
