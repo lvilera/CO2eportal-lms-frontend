@@ -2,16 +2,19 @@
   "apps": [
     {
       "name": "lms-front",
-      "script": "serve",
-      "args": ["-s", "build", "-l", "3000"],
-      "instances": 1,
-      "exec_mode": "fork",
+      "script": "node_modules/next/dist/bin/next",
+      "args": "start",
+      "cwd": "/var/www/CO2eportal-lms-frontend",
+      "instances": 2,
+      "exec_mode": "cluster",
       "env": {
-        "PM2_SERVE_PATH": "./build",
-        "PM2_SERVE_PORT": 3000,
-        "PM2_SERVE_SPA": "true",
-        "NODE_ENV": "production"
-      }
+        "NODE_ENV": "development",
+        "PORT": 3000
+      },
+      "error_file": "/var/log/pm2/lms-front-error.log",
+      "out_file": "/var/log/pm2/lms-front-out.log",
+      "merge_logs": true,
+      "time": true
     }
   ]
 }
