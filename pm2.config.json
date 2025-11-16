@@ -9,8 +9,15 @@
       "exec_mode": "cluster",
       "env": {
         "NODE_ENV": "production",
-        "PORT": 3000
-      }
+        "PORT": 3000,
+        "HOST": "0.0.0.0"
+      },
+      "error_file": "/var/log/pm2/lms-front-error.log",
+      "out_file": "/var/log/pm2/lms-front-out.log",
+      "log_file": "/var/log/pm2/lms-front-combined.log",
+      "time": true,
+      "watch": false,
+      "max_memory_restart": "500M"
     }
   ]
 }
