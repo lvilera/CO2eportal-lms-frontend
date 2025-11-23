@@ -1,12 +1,5 @@
 import type { NavItem } from "@/components/ui/NavItem";
-import {
-  BarChart3,
-  BookOpen,
-  DollarSign,
-  LayoutList,
-  Settings,
-  Trophy,
-} from "lucide-react";
+import { BookOpen, LayoutList, Settings, Trophy } from "lucide-react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 
@@ -26,16 +19,7 @@ const navItems: NavItem[] = [
       { title: "All Courses", href: "/student/courses" },
     ],
   },
-  {
-    title: "Progress & Analytics",
-    icon: <BarChart3 className="h-4 w-4" />,
-    href: "/student/progress",
-    children: [
-      { title: "Course Progress", href: "/student/progress/courses" },
-      { title: "Time Spent", href: "/student/progress/time" },
-      { title: "Quiz Performance", href: "/student/progress/quizzes" },
-    ],
-  },
+
   {
     title: "Enrollments",
     icon: <LayoutList className="h-4 w-4" />,
@@ -45,16 +29,16 @@ const navItems: NavItem[] = [
       { title: "Pending Requests", href: "/student/enrollments/requests" },
     ],
   },
-  {
-    title: "Billing & Payments",
-    icon: <DollarSign className="h-4 w-4" />,
-    href: "/student/billing",
-    children: [
-      { title: "Invoices", href: "/student/billing/invoices" },
-      { title: "Payment Methods", href: "/student/billing/methods" },
-      { title: "Subscriptions", href: "/student/billing/subscriptions" },
-    ],
-  },
+  // {
+  //   title: "Billing & Payments",
+  //   icon: <DollarSign className="h-4 w-4" />,
+  //   href: "/student/billing",
+  //   children: [
+  //     { title: "Invoices", href: "/student/billing/invoices" },
+  //     { title: "Payment Methods", href: "/student/billing/methods" },
+  //     { title: "Subscriptions", href: "/student/billing/subscriptions" },
+  //   ],
+  // },
   {
     title: "Certificates & Achievements",
     icon: <Trophy className="h-4 w-4" />,
