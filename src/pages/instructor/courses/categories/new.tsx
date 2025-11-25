@@ -80,7 +80,7 @@ export default function NewCourseCategory() {
   return (
     <>
       <Head>
-        <title>New Course Category · Instructor</title>
+        <title>New Course Category · Admin</title>
       </Head>
       <InstructorLayout>
         <form

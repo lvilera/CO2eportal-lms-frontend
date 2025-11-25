@@ -22,8 +22,8 @@ const navItems: NavItem[] = [
     href: "/instructor/courses",
     children: [
       { title: "All Courses", href: "/instructor/courses" },
-      { title: "Create Course", href: "/instructor/courses/create" },
-      { title: "Modules & Lessons", href: "/instructor/courses/modules" },
+      { title: "Create Course", href: "/instructor/courses/new" },
+      // { title: "Modules & Lessons", href: "/instructor/courses/modules" },
       { title: "Assignments", href: "/instructor/courses/assignments" },
     ],
   },

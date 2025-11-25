@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
     href: "/student/enrollments",
     children: [
       { title: "My Enrollments", href: "/student/enrollments" },
-      { title: "Pending Requests", href: "/student/enrollments/requests" },
+      /* { title: "Pending Requests", href: "/student/enrollments/requests" }, */
     ],
   },
   // {
@@ -45,7 +45,7 @@ const navItems: NavItem[] = [
     href: "/student/certificates",
     children: [
       { title: "Certificates", href: "/student/certificates" },
-      { title: "Badges", href: "/student/certificates/badges" },
+      /* { title: "Badges", href: "/student/certificates/badges" }, */
     ],
   },
   {

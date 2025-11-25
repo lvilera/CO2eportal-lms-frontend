@@ -1,4 +1,4 @@
-import AdminLayout from "@/components/admin/layout/AdminLayout";
+import InstructorLayout from "@/components/instructor/layout/InstructorLayout";
 import apiRequest from "@/lib/axios";
 import { Loader2, Pencil, PlusCircle, Trash2 } from "lucide-react";
 import Head from "next/head";
@@ -202,7 +202,7 @@ export default function CourseModulesPage() {
       <div className="mt-1 text-sm text-gray-600 dark:text-neutral-300">
         <span className="font-medium">{course.title}</span>
         {categoryLabel && (
-          <span className="ml-2 inline-flex items-center rounded-full bg-blue-500 text-white dark:bg-blue-700 dark:text-blue-200 px-3 py-0.5 text-xs">
+          <span className="ml-2 inline-flex items-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-2 py-0.5 text-xs">
             {categoryLabel}
           </span>
         )}
@@ -215,7 +215,7 @@ export default function CourseModulesPage() {
       <Head>
         <title>Modules · Admin</title>
       </Head>
-      <AdminLayout>
+      <InstructorLayout>
         <div className="max-w-5xl mx-auto space-y-6">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -418,7 +418,7 @@ export default function CourseModulesPage() {
             )}
           </div>
         </div>
-      </AdminLayout>
+      </InstructorLayout>
     </>
   );
 }

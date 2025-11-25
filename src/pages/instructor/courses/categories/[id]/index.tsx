@@ -152,7 +152,7 @@ export default function EditCourseCategory() {
     return (
       <>
         <Head>
-          <title>Edit Course Category · Instructor</title>
+          <title>Edit Course Category · Admin</title>
         </Head>
         <InstructorLayout>
           <div className="max-w-3xl mx-auto p-8">
@@ -169,7 +169,7 @@ export default function EditCourseCategory() {
   return (
     <>
       <Head>
-        <title>Edit Course Category · Instructor</title>
+        <title>Edit Course Category · Admin</title>
       </Head>
       <InstructorLayout>
         <form

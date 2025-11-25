@@ -37,7 +37,7 @@ export default function NewCourse() {
     subtitle: "",
     description: "",
     thumbnailUrl: "",
-    category: "",
+    categoryId: "",
     tags: "" as string, // comma separated input
     level: "beginner",
     language: "en",
@@ -185,8 +185,8 @@ export default function NewCourse() {
                 Category
               </label>
               <select
-                name="category"
-                value={form.category}
+                name="categoryId"
+                value={form.categoryId}
                 onChange={onChange}
                 disabled={loadingCategories || categories.length === 0}
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 outline-none focus:ring-2 focus:ring-primary/40"

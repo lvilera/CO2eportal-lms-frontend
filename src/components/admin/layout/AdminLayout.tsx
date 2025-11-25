@@ -35,7 +35,7 @@ const navItems: NavItem[] = [
     children: [
       { title: "All Courses", href: "/admin/courses" },
       { title: "Categories", href: "/admin/courses/categories" },
-      { title: "Modules/Lessons", href: "/admin/courses/modules" },
+      /* { title: "Modules/Lessons", href: "/admin/courses/modules" }, */
     ],
   },
   {
