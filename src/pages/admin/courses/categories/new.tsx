@@ -1,5 +1,7 @@
 import AdminLayout from "@/components/admin/layout/AdminLayout";
+import { FileUploader } from "@/components/ui/FileUploader";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -62,16 +64,15 @@ export default function NewCourseCategory() {
         slug: form.slug || slugify(form.title),
         subtitle: form.subtitle,
         description: form.description,
-        // thumbnailUrl: form.thumbnailUrl, // URL string
+        thumbnailUrl: form.thumbnailUrl,
         isPublished: form.isPublished, // boolean
       };
-
-      await apiRequest.post("/course-category", payload); // JSON by default
-
+      await apiRequest.post("/course-category", payload);
+      Toastr.success("Saved successfully!");
       router.push("/admin/courses/categories");
-    } catch (err) {
-      console.error(err);
-      // TODO: toast
+    } catch (err: any) {
+      Toastr.error(err?.["message"]);
+      //console.error(err);
     } finally {
       setSaving(false);
     }
@@ -142,16 +143,17 @@ export default function NewCourseCategory() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 dark:text-neutral-400 mb-1">
-              Thumbnail URL
-            </label>
-            <input
-              type="url"
+            <FileUploader
+              label="Thumbnail Image"
               name="thumbnailUrl"
-              placeholder="https://…/image.jpg"
               value={form.thumbnailUrl}
-              onChange={onChange}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 outline-none focus:ring-2 focus:ring-primary/40"
+              onUrlChange={(url) =>
+                setForm((f) => ({ ...f, thumbnailUrl: (url as string) ?? "" }))
+              }
+              endpoint="/files/image"
+              fileType="image"
+              accept="image/*"
+              helperText="Supported: JPG, PNG, WEBP. Max 15MB."
             />
           </div>
 

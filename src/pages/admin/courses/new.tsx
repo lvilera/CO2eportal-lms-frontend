@@ -1,6 +1,7 @@
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import { FileUploader } from "@/components/ui/FileUploader";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -90,10 +91,10 @@ export default function NewCourse() {
       };
 
       await apiRequest.post("/courses", payload);
-
+      Toastr.success("Saved successfully!");
       router.push("/admin/courses");
-    } catch (e) {
-      // TODO: toast
+    } catch (err: any) {
+      Toastr.error(err?.["message"]);
     } finally {
       setSaving(false);
     }

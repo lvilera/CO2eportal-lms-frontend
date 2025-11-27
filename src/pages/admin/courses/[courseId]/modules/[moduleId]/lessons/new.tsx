@@ -7,9 +7,7 @@ import { useState } from "react";
 
 export default function NewLessonPage() {
   const router = useRouter();
-  const { id, moduleId } = router.query;
-  const normalizedCourseId = Array.isArray(id) ? id[0] : id;
-  const normalizedModuleId = Array.isArray(moduleId) ? moduleId[0] : moduleId;
+  const { courseId, moduleId } = router.query;
 
   const [saving, setSaving] = useState(false);
 
@@ -44,7 +42,7 @@ export default function NewLessonPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!normalizedCourseId || !normalizedModuleId) return;
+    if (!courseId || !courseId) return;
 
     setSaving(true);
     try {
@@ -80,12 +78,12 @@ export default function NewLessonPage() {
 
       await apiRequest.post(`/lessons`, {
         ...payload,
-        courseId: normalizedCourseId,
-        moduleId: normalizedModuleId,
+        courseId,
+        moduleId,
       });
 
       // Redirect – adjust to your flow (module detail / modules list)
-      router.push(`/admin/courses/${normalizedCourseId}/modules`);
+      router.push(`/admin/courses/${courseId}/modules`);
     } catch (err) {
       // TODO: toast / error handling
     } finally {
@@ -94,8 +92,8 @@ export default function NewLessonPage() {
   };
 
   const handleCancel = () => {
-    if (normalizedCourseId) {
-      router.push(`/admin/courses/${normalizedCourseId}/modules`);
+    if (courseId) {
+      router.push(`/admin/courses/${courseId}/modules`);
     } else {
       router.push("/admin/courses");
     }

@@ -100,7 +100,7 @@ export default function EditStudent() {
       if (form?.role == "admin") {
         router.push("/admin/users/admins");
       } else if (form.role == "instructor") {
-        router.push("/admin/users/instructors");
+        router.push("/admin/usersadmins");
       }
       router.push("/admin/users/students");
     } catch (err) {
