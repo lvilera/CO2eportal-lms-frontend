@@ -19,7 +19,7 @@ type Course = {
   title: string;
   category?: string;
   price?: number;
-  status?: "draft" | "published";
+  isPublished?: boolean;
   thumbnailUrl?: string;
   updatedAt?: string;
 };
@@ -156,12 +156,12 @@ export default function CoursesIndex() {
                     <td className="p-3">
                       <span
                         className={`px-2 py-1 rounded text-xs ${
-                          c.status === "published"
+                          c.isPublished
                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                         }`}
                       >
-                        {c.status || "draft"}
+                        {c.isPublished ? "Published" : "draft"}
                       </span>
                     </td>
                     <td className="p-3">
