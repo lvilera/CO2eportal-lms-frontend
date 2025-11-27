@@ -2,6 +2,7 @@
 
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -91,6 +92,7 @@ export default function NewQuiz() {
 
     if (!courseId || !moduleId) {
       // TODO: toast / error message (missing IDs)
+      Toastr.error("Missing IDs");
       return;
     }
 
@@ -114,10 +116,10 @@ export default function NewQuiz() {
           ? new Date(form.availableUntil).toISOString()
           : null,
       });
-
+      Toastr.success("Saved successfully!");
       router.push(`/admin/courses/${courseId}/modules`);
-    } catch (error) {
-      // TODO: toast / error handling
+    } catch (err: any) {
+      Toastr.error(err?.message);
     } finally {
       setSaving(false);
     }

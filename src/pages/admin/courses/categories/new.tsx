@@ -71,7 +71,7 @@ export default function NewCourseCategory() {
       Toastr.success("Saved successfully!");
       router.push("/admin/courses/categories");
     } catch (err: any) {
-      Toastr.error(err?.["message"]);
+      Toastr.error(err?.message);
       //console.error(err);
     } finally {
       setSaving(false);

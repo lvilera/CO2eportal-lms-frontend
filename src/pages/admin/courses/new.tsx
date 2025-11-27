@@ -52,28 +52,6 @@ export default function NewCourse() {
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const onThumbnailFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const body = new FormData();
-    body.append("file", file);
-
-    try {
-      setUploadingThumbnail(true);
-      // Adjust endpoint to your actual upload route
-      const res = await apiRequest.post<{ url: string }>("/uploads", body, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setForm((f) => ({ ...f, thumbnailUrl: res.data.url }));
-    } catch (err) {
-      // TODO: toast error
-    } finally {
-      setUploadingThumbnail(false);
-    }
-  };
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -94,7 +72,7 @@ export default function NewCourse() {
       Toastr.success("Saved successfully!");
       router.push("/admin/courses");
     } catch (err: any) {
-      Toastr.error(err?.["message"]);
+      Toastr.error(err?.message);
     } finally {
       setSaving(false);
     }
@@ -299,13 +277,14 @@ export default function NewCourse() {
           {/* INSTRUCTOR SELECT */}
           <div>
             <label className="block text-sm text-gray-600 dark:text-neutral-400 mb-1">
-              Instructor
+              Instructor<span className="text-red-500">*</span>
             </label>
             <select
               name="instructorId"
               value={form.instructorId}
               onChange={onChange}
               disabled={loadingInstructors || instructors.length === 0}
+              required
               className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 outline-none focus:ring-2 focus:ring-primary/40"
             >
               <option value="">

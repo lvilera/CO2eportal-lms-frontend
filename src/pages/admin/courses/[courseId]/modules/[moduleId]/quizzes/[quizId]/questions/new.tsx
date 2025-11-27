@@ -2,6 +2,7 @@
 
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -35,6 +36,7 @@ type QuestionFormState = {
 
 export default function NewQuestionPage() {
   const router = useRouter();
+
   const {
     courseId: queryCourseId,
     moduleId: queryModuleId,
@@ -209,7 +211,7 @@ export default function NewQuestionPage() {
     e.preventDefault();
 
     if (!quizId) {
-      // TODO: toast / error message
+      Toastr.success("Missing IDs");
       return;
     }
 
@@ -228,10 +230,11 @@ export default function NewQuestionPage() {
         difficulty: form.difficulty,
       });
 
+      Toastr.success("Saved successfully!");
       // Redirect after create – adjust to your own questions list route
       router.push(`/admin/courses/${courseId}/modules`);
-    } catch (error) {
-      // TODO: toast / error handling
+    } catch (err: any) {
+      Toastr.error(err?.message);
     } finally {
       setSaving(false);
     }

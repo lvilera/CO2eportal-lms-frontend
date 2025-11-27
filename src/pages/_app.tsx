@@ -1,3 +1,4 @@
+import ConfirmDialogProvider from "@/components/ui/ConfirmDialogProvider";
 import { AuthProvider } from "@/context/AuthContext";
 import { UIProvider } from "@/context/UIContext";
 import "@/styles/globals.css";
@@ -8,7 +9,10 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   return (
     <AuthProvider>
       <UIProvider>
-        <Component {...pageProps} />
+        <ConfirmDialogProvider>
+          <Component {...pageProps} />
+        </ConfirmDialogProvider>
+
         <Toaster />
       </UIProvider>
     </AuthProvider>

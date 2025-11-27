@@ -1,5 +1,7 @@
 import AdminLayout from "@/components/admin/layout/AdminLayout";
+import { useConfirm } from "@/components/ui/ConfirmDialogProvider";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import {
   Loader2,
   MoreVertical,
@@ -24,6 +26,7 @@ export default function CourseCategoryIndex() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<CourseCategory[]>([]);
+  const { confirm } = useConfirm();
 
   useEffect(() => {
     let mounted = true;
@@ -46,6 +49,23 @@ export default function CourseCategoryIndex() {
       mounted = false;
     };
   }, [q]);
+
+  const handleDelete = async (c: any) => {
+    const ok = await confirm({
+      title: "Delete Category?",
+      message: "You are about to delete this Category permanently.",
+      confirmText: "Yes, delete",
+      cancelText: "Cancel",
+    });
+
+    if (!ok) return;
+
+    // perform delete
+    await apiRequest.delete(`/course-category/${c._id}`);
+    // Refresh list
+    setRows((prev) => prev.filter((x) => x._id !== c._id));
+    Toastr.success("Category deleted!");
+  };
 
   return (
     <>
@@ -155,15 +175,8 @@ export default function CourseCategoryIndex() {
                         <button
                           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 text-red-600"
                           title="Delete"
-                          onClick={async () => {
-                            if (!confirm("Delete this course?")) return;
-                            await apiRequest.delete(
-                              `/course-category/${c._id}`
-                            );
-                            // Refresh list
-                            setRows((prev) =>
-                              prev.filter((x) => x._id !== c._id)
-                            );
+                          onClick={() => {
+                            handleDelete(c);
                           }}
                         >
                           <Trash2 className="h-4 w-4" />

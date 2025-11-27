@@ -1,5 +1,6 @@
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -82,10 +83,11 @@ export default function NewLessonPage() {
         moduleId,
       });
 
+      Toastr.success("Saved successfully!");
       // Redirect – adjust to your flow (module detail / modules list)
       router.push(`/admin/courses/${courseId}/modules`);
-    } catch (err) {
-      // TODO: toast / error handling
+    } catch (err: any) {
+      Toastr.error(err?.message);
     } finally {
       setSaving(false);
     }

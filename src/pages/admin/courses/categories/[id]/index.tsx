@@ -144,7 +144,7 @@ export default function EditCourseCategory() {
       setForm(payload);
       router.push("/admin/courses/categories");
     } catch (err: any) {
-      Toastr.error(err?.["message"]);
+      Toastr.error(err?.message);
       //console.error(err);
     } finally {
       setSaving(false);

@@ -1,7 +1,9 @@
 // pages/admin/courses/[courseId]/modules/[moduleId]/quizzes/[quizId]/questions/index.tsx
 
 import AdminLayout from "@/components/admin/layout/AdminLayout";
+import { useConfirm } from "@/components/ui/ConfirmDialogProvider";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -42,6 +44,8 @@ type Quiz = {
 };
 export default function QuizQuestionsListPage() {
   const router = useRouter();
+  const { confirm } = useConfirm();
+
   const {
     courseId: queryCourseId,
     moduleId: queryModuleId,
@@ -78,8 +82,8 @@ export default function QuizQuestionsListPage() {
         const res = await apiRequest.get(`/quizzes/${quizId}`);
 
         setQuiz(res?.data);
-      } catch (error) {
-        // TODO: toast / error handling
+      } catch (err: any) {
+        Toastr.error(err?.message);
       } finally {
         setLoading(false);
       }
@@ -101,8 +105,8 @@ export default function QuizQuestionsListPage() {
         });
 
         setQuestions(items);
-      } catch (error) {
-        // TODO: toast / error handling
+      } catch (err: any) {
+        Toastr.error(err?.message);
       } finally {
         setLoading(false);
       }
@@ -131,17 +135,22 @@ export default function QuizQuestionsListPage() {
 
   const handleDelete = async (questionId: string) => {
     if (!questionId) return;
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this question?"
-    );
-    if (!confirmed) return;
+
+    const ok = await confirm({
+      title: "Delete Category?",
+      message: "You are about to delete this Category permanently.",
+      confirmText: "Yes, delete",
+      cancelText: "Cancel",
+    });
+
+    if (!ok) return;
 
     try {
       setDeletingId(questionId);
       await apiRequest.delete(`/quizzes/questions/${questionId}`);
       setQuestions((prev) => prev.filter((q) => getId(q) !== questionId));
-    } catch (error) {
-      // TODO: toast / error handling
+    } catch (err: any) {
+      Toastr.error(err?.message);
     } finally {
       setDeletingId(null);
     }

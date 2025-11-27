@@ -1,5 +1,6 @@
 import InstructorLayout from "@/components/instructor/layout/InstructorLayout";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -42,8 +43,8 @@ export default function NewModule() {
 
       // Adjust redirect as needed (e.g. modules list for that course)
       router.push(`/instructor/courses/`);
-    } catch (error) {
-      // TODO: toast / error handling
+    } catch (err: any) {
+      Toastr.error(err?.message);
     } finally {
       setSaving(false);
     }

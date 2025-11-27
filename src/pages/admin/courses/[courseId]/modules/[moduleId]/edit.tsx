@@ -2,6 +2,7 @@
 
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -48,8 +49,9 @@ export default function EditModule() {
           data.courseId ||
           (data.course && (data.course._id || data.course.id)) ||
           null;
-      } catch (error) {
-        // TODO: toast / error handling
+        Toastr.success("Saved successfully!");
+      } catch (err: any) {
+        Toastr.error(err?.message);
       } finally {
         setLoading(false);
       }
@@ -85,8 +87,9 @@ export default function EditModule() {
       } else {
         router.push(`/admin/courses/`);
       }
-    } catch (error) {
-      // TODO: toast / error handling
+      Toastr.success("Saved successfully!");
+    } catch (err: any) {
+      Toastr.error(err?.message);
     } finally {
       setSaving(false);
     }

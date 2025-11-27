@@ -38,7 +38,7 @@ type Course = {
 
 export default function EditCourse() {
   const router = useRouter();
-  const { id } = router.query;
+  const { courseId } = router.query;
 
   const [saving, setSaving] = useState(false);
   const [loadingCourse, setLoadingCourse] = useState(true);
@@ -48,8 +48,6 @@ export default function EditCourse() {
 
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [loadingInstructors, setLoadingInstructors] = useState(false);
-
-  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -75,31 +73,8 @@ export default function EditCourse() {
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const onThumbnailFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const body = new FormData();
-    body.append("file", file);
-
-    try {
-      setUploadingThumbnail(true);
-      // Adjust to your actual upload endpoint/response
-      const res = await apiRequest.post<{ url: string }>("/uploads", body, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setForm((f) => ({ ...f, thumbnailUrl: res.data.url }));
-    } catch (err) {
-      // TODO: toast error
-    } finally {
-      setUploadingThumbnail(false);
-    }
-  };
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const courseId = Array.isArray(id) ? id[0] : id;
     if (!courseId) return;
 
     setSaving(true);
@@ -128,7 +103,7 @@ export default function EditCourse() {
       Toastr.success("Updated successfully!");
       router.push("/admin/courses");
     } catch (err: any) {
-      Toastr.error(err?.["message"]);
+      Toastr.error(err?.message);
     } finally {
       setSaving(false);
     }
@@ -174,7 +149,6 @@ export default function EditCourse() {
 
   // Fetch course details
   useEffect(() => {
-    const courseId = Array.isArray(id) ? id[0] : id;
     if (!courseId) return;
 
     const fetchCourse = async () => {
@@ -203,15 +177,15 @@ export default function EditCourse() {
               ? course.instructorId
               : (course.instructorId as any)?._id || "",
         });
-      } catch (err) {
-        // TODO: toast/error
+      } catch (err: any) {
+        Toastr.error(err?.message);
       } finally {
         setLoadingCourse(false);
       }
     };
 
     fetchCourse();
-  }, [id]);
+  }, [courseId]);
 
   return (
     <>
@@ -381,13 +355,14 @@ export default function EditCourse() {
             {/* INSTRUCTOR SELECT */}
             <div>
               <label className="block text-sm text-gray-600 dark:text-neutral-400 mb-1">
-                Instructor
+                Instructor<span className="text-red-500">*</span>
               </label>
               <select
                 name="instructorId"
                 value={form.instructorId}
                 onChange={onChange}
                 disabled={loadingInstructors || instructors.length === 0}
+                required
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <option value="">

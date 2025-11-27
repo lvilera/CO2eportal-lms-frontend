@@ -1,5 +1,7 @@
 import AdminLayout from "@/components/admin/layout/AdminLayout";
+import { useConfirm } from "@/components/ui/ConfirmDialogProvider";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import {
   Cable,
   Loader2,
@@ -25,7 +27,25 @@ type Course = {
 export default function CoursesIndex() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const { confirm } = useConfirm();
   const [rows, setRows] = useState<Course[]>([]);
+
+  const handleDelete = async (c: any) => {
+    const ok = await confirm({
+      title: "Delete Course?",
+      message: "You are about to delete this Course permanently.",
+      confirmText: "Yes, delete",
+      cancelText: "Cancel",
+    });
+
+    if (!ok) return;
+
+    // perform delete
+    await apiRequest.delete(`/course/${c._id}`);
+    // Refresh list
+    setRows((prev) => prev.filter((x) => x._id !== c._id));
+    Toastr.success("Course deleted!");
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -163,13 +183,8 @@ export default function CoursesIndex() {
                         <button
                           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 text-red-600"
                           title="Delete"
-                          onClick={async () => {
-                            if (!confirm("Delete this course?")) return;
-                            await apiRequest.delete(`/courses/${c._id}`);
-                            // Refresh list
-                            setRows((prev) =>
-                              prev.filter((x) => x._id !== c._id)
-                            );
+                          onClick={() => {
+                            handleDelete(c);
                           }}
                         >
                           <Trash2 className="h-4 w-4" />

@@ -2,6 +2,7 @@
 
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -103,8 +104,8 @@ export default function EditQuiz() {
           availableFrom: isoToDatetimeLocal(data.availableFrom),
           availableUntil: isoToDatetimeLocal(data.availableUntil),
         });
-      } catch (error) {
-        // TODO: toast / error handling
+      } catch (err: any) {
+        Toastr.error(err?.message);
       } finally {
         setLoading(false);
       }
@@ -178,10 +179,10 @@ export default function EditQuiz() {
           ? new Date(form.availableUntil).toISOString()
           : null,
       });
-
+      Toastr.success("Saved successfully!");
       router.push(`/admin/courses/${courseId}/modules`);
-    } catch (error) {
-      // TODO: toast / error handling
+    } catch (err: any) {
+      Toastr.error(err?.message);
     } finally {
       setSaving(false);
     }

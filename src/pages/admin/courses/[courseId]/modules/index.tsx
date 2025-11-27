@@ -1,5 +1,7 @@
 import AdminLayout from "@/components/admin/layout/AdminLayout";
+import { useConfirm } from "@/components/ui/ConfirmDialogProvider";
 import apiRequest from "@/lib/axios";
+import { Toastr } from "@/lib/toastr";
 import { Loader2, Pencil, PlusCircle, Trash2 } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -44,6 +46,8 @@ type ContentItem = {
 
 export default function CourseModulesPage() {
   const router = useRouter();
+  const { confirm } = useConfirm();
+
   const { courseId } = router.query;
 
   const [course, setCourse] = useState<Course | null>(null);
@@ -151,7 +155,14 @@ export default function CourseModulesPage() {
   };
 
   const deleteModule = async (moduleId: string) => {
-    if (!window.confirm("Are you sure you want to delete this module?")) return;
+    const ok = await confirm({
+      title: "Delete Module?",
+      message: "You are about to delete this Module permanently.",
+      confirmText: "Yes, delete",
+      cancelText: "Cancel",
+    });
+
+    if (!ok) return;
 
     try {
       setDeletingModuleId(moduleId);
@@ -166,6 +177,7 @@ export default function CourseModulesPage() {
     } catch (err) {
       // TODO: toast
     } finally {
+      Toastr.success("Module deleted!");
       setDeletingModuleId(null);
     }
   };
