@@ -88,13 +88,6 @@ export default function CoursesIndex() {
               className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-sm outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
-          <Link
-            href="/admin/courses/new"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-white hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" />
-            New Course
-          </Link>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">

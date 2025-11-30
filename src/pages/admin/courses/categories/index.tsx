@@ -71,7 +71,7 @@ export default function CourseCategoryIndex() {
     <>
       <AdminLayout>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-semibold">Courses</h1>
+          <h1 className="text-xl font-semibold">Course Category</h1>
           <Link
             href="/admin/courses/categories/new"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90"
@@ -85,17 +85,10 @@ export default function CourseCategoryIndex() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search courses…"
+              placeholder="Search course category..."
               className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-sm outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
-          <Link
-            href="/admin/courses/category/new"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-white hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" />
-            New Course
-          </Link>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">

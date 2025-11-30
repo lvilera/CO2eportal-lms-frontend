@@ -16,7 +16,7 @@ const navItems: NavItem[] = [
     children: [
       { title: "Active Courses", href: "/student/courses/active" },
       { title: "Completed Courses", href: "/student/courses/completed" },
-      { title: "All Courses", href: "/student/courses" },
+      { title: "All Courses", href: "/student/courses/all" },
     ],
   },
 

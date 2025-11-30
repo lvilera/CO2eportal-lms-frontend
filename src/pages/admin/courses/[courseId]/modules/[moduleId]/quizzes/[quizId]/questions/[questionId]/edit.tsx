@@ -141,7 +141,6 @@ export default function EditQuestionPage() {
               ? data.difficulty
               : "medium",
         });
-        Toastr.success("Saved successfully!");
       } catch (err: any) {
         Toastr.error(err?.message);
       } finally {
