@@ -1,8 +1,10 @@
 // pages/student/courses/all.tsx
 import StudentLayout from "@/components/student/layout/StudentLayout";
+import apiRequest from "@/lib/axios";
 import { CheckCircle2, Clock3, PlayCircle, Search } from "lucide-react";
 import Head from "next/head";
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 type CourseStatus = "active" | "completed" | "not-started";
 
@@ -20,59 +22,114 @@ type AllCourse = {
   nextLesson?: string;
 };
 
-// MOCK DATA
-const MOCK_ALL_COURSES: AllCourse[] = [
-  {
-    id: "course-1",
-    title: "Net Zero Carbon Strategy for Business",
-    category: "Sustainability",
-    level: "Intermediate",
-    instructor: "Dr. Emma Collins",
-    totalHours: 20,
-    completedHours: 14,
-    completionRate: 72,
-    status: "active",
-    nextLesson: "Module 4 · Emissions Deep Dive",
-  },
-  {
-    id: "course-2",
-    title: "Modern React & TypeScript Fundamentals",
-    category: "Development",
-    level: "Beginner",
-    instructor: "John Miller",
-    totalHours: 15,
-    completedHours: 15,
-    completionRate: 100,
-    status: "completed",
-    nextLesson: "You finished this course",
-  },
-  {
-    id: "course-3",
-    title: "Data Analytics for Business Leaders",
-    category: "Analytics",
-    level: "Intermediate",
-    instructor: "Sarah Khan",
-    totalHours: 18,
-    completedHours: 0,
-    completionRate: 0,
-    status: "not-started",
-  },
-];
+type ApiCourse = {
+  _id: string;
+  title: string;
+  categoryId?:
+    | {
+        _id: string;
+        title: string;
+      }
+    | string;
+  level?: string;
+  instructorId?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+  thumbnailUrl?: string;
+  durationMinutes?: number;
+  // other fields are present but we don't need them here
+};
 
 export default function AllCoursesPage() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<
     "recent" | "oldest" | "a-z" | "z-a" | "hours-high" | "hours-low"
   >("recent");
-
   const [category, setCategory] = useState("all");
 
-  const categories = ["all", "Sustainability", "Development", "Analytics"];
+  const [courses, setCourses] = useState<AllCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch from API
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await apiRequest.get("/courses");
+        const raw = res.data;
+
+        // Handle both array and {items: []} style responses
+        const apiCourses: ApiCourse[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.items)
+          ? raw.items
+          : [];
+
+        const mapped: AllCourse[] = apiCourses.map((c) => {
+          const categoryTitle =
+            typeof c.categoryId === "object" && c.categoryId
+              ? c.categoryId.title
+              : "Uncategorized";
+
+          const instructorName =
+            c.instructorId &&
+            (c.instructorId.firstName || c.instructorId.lastName)
+              ? `${c.instructorId.firstName ?? ""} ${
+                  c.instructorId.lastName ?? ""
+                }`.trim()
+              : c.instructorId?.email ?? "Unknown Instructor";
+
+          const totalHours = c.durationMinutes
+            ? Math.max(1, Math.round(c.durationMinutes / 60))
+            : 0;
+
+          // Until you wire real progress data, treat everything as "not-started"
+          return {
+            id: c._id,
+            title: c.title,
+            category: categoryTitle,
+            level: c.level || "Beginner",
+            instructor: instructorName,
+            thumbnailUrl: c.thumbnailUrl,
+            totalHours,
+            completedHours: 0,
+            completionRate: 0,
+            status: "not-started",
+            nextLesson: undefined,
+          };
+        });
+
+        setCourses(mapped);
+      } catch (err) {
+        console.error("Failed to load courses", err);
+        setError("Failed to load courses. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  // Build category filter list from API data
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    courses.forEach((c) => set.add(c.category));
+    return ["all", ...Array.from(set)];
+  }, [courses]);
+
+  // Filter + sort
   const filtered = useMemo(() => {
-    let list = [...MOCK_ALL_COURSES];
+    let list = [...courses];
 
-    if (category !== "all") list = list.filter((c) => c.category === category);
+    if (category !== "all") {
+      list = list.filter((c) => c.category === category);
+    }
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -97,12 +154,14 @@ export default function AllCoursesPage() {
         case "oldest":
         case "recent":
         default:
+          // No createdAt in AllCourse yet – once you expose it from API,
+          // you can add date-based sorting here.
           return 0;
       }
     });
 
     return list;
-  }, [search, sort, category]);
+  }, [courses, search, sort, category]);
 
   return (
     <>
@@ -171,109 +230,128 @@ export default function AllCoursesPage() {
             })}
           </div>
 
-          {/* Courses List */}
-          <div className="space-y-4">
-            {filtered.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500">
-                No courses match your filters.
-              </div>
-            ) : (
-              filtered.map((course) => (
-                <div
-                  key={course.id}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 md:px-6 md:py-5 flex flex-col gap-4 md:flex-row"
-                >
-                  {/* Thumbnail */}
-                  <div className="w-full md:w-40 lg:w-48 flex-shrink-0">
-                    <div className="relative overflow-hidden rounded-xl bg-slate-100 h-24 md:h-full flex items-center justify-center">
-                      <span className="text-[11px] text-slate-400">
-                        Course thumbnail
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Main */}
-                  <div className="flex-1 flex flex-col justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] text-slate-500 mb-1">
-                        {course.category} · {course.level}
-                      </p>
-                      <h2 className="text-sm md:text-[15px] font-semibold text-slate-900">
-                        {course.title}
-                      </h2>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Instructor: {course.instructor}
-                      </p>
-                    </div>
-
-                    {/* Progress */}
-                    {course.status !== "not-started" && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-[11px] text-slate-500">
-                          <span>Progress</span>
-                          <span>{course.completionRate}%</span>
-                        </div>
-
-                        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                          <div
-                            className="h-full bg-slate-900 rounded-full"
-                            style={{ width: `${course.completionRate}%` }}
+          {/* Content State */}
+          {loading ? (
+            <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500">
+              Loading courses...
+            </div>
+          ) : error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 py-10 text-center text-sm text-red-600">
+              {error}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filtered.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500">
+                  No courses match your filters.
+                </div>
+              ) : (
+                filtered.map((course) => (
+                  <div
+                    key={course.id}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-4 md:px-6 md:py-5 flex flex-col gap-4 md:flex-row"
+                  >
+                    {/* Thumbnail */}
+                    <div className="w-full md:w-40 lg:w-48 flex-shrink-0">
+                      <div className="relative overflow-hidden rounded-xl bg-slate-100 h-24 md:h-full flex items-center justify-center">
+                        {course.thumbnailUrl ? (
+                          // You can switch to next/image if you prefer
+                          <img
+                            src={course.thumbnailUrl}
+                            alt={course.title}
+                            className="h-full w-full object-cover"
                           />
-                        </div>
-
-                        {course.nextLesson && (
-                          <div className="text-[11px] text-slate-500">
-                            Next:{" "}
-                            <span className="text-slate-800 font-medium">
-                              {course.nextLesson}
-                            </span>
-                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">
+                            Course thumbnail
+                          </span>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Actions */}
-                  <div className="w-full md:w-48 flex flex-col justify-between gap-3">
-                    {course.status === "active" && (
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                        Continue Course
-                      </button>
-                    )}
+                    {/* Main */}
+                    <div className="flex-1 flex flex-col justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] text-slate-500 mb-1">
+                          {course.category} · {course.level}
+                        </p>
+                        <h2 className="text-sm md:text-[15px] font-semibold text-slate-900">
+                          {course.title}
+                        </h2>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Instructor: {course.instructor}
+                        </p>
+                      </div>
 
-                    {course.status === "completed" && (
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        Completed
-                      </button>
-                    )}
+                      {/* Progress */}
+                      {course.status !== "not-started" && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-[11px] text-slate-500">
+                            <span>Progress</span>
+                            <span>{course.completionRate}%</span>
+                          </div>
 
-                    {course.status === "not-started" && (
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                        Start Course
-                      </button>
-                    )}
+                          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className="h-full bg-slate-900 rounded-full"
+                              style={{ width: `${course.completionRate}%` }}
+                            />
+                          </div>
 
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                      <Clock3 className="h-3 w-3" />
-                      {course.totalHours} hours total
+                          {course.nextLesson && (
+                            <div className="text-[11px] text-slate-500">
+                              Next:{" "}
+                              <span className="text-slate-800 font-medium">
+                                {course.nextLesson}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="w-full md:w-48 flex flex-col justify-between gap-3">
+                      {course.status === "active" && (
+                        <Link
+                          href={`/student/courses/${course.id}/play/`}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
+                        >
+                          <PlayCircle className="h-4 w-4" />
+                          Continue Course
+                        </Link>
+                      )}
+
+                      {course.status === "completed" && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          Completed
+                        </button>
+                      )}
+
+                      {course.status === "not-started" && (
+                        <Link
+                          href={`/student/courses/${course.id}/play/`}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
+                        >
+                          <PlayCircle className="h-4 w-4" />
+                          Start Course
+                        </Link>
+                      )}
+
+                      <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                        <Clock3 className="h-3 w-3" />
+                        {course.totalHours} hours total
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </StudentLayout>
     </>

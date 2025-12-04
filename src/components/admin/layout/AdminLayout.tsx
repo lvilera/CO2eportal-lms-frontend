@@ -39,6 +39,11 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    title: "Company",
+    icon: <LayoutList className="h-4 w-4" />,
+    href: "/admin/companies",
+  },
+  {
     title: "Enrollments",
     icon: <LayoutList className="h-4 w-4" />,
     href: "/admin/enrollments",

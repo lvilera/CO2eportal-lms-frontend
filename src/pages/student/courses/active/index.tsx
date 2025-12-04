@@ -227,7 +227,7 @@ export default function StudentActiveCoursesPage() {
                     {/* Actions */}
                     <div className="flex items-center justify-between gap-2 pt-1">
                       <Link
-                        href={"/student/courses/play/123"}
+                        href={"/student/courses/123/play/"}
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
                       >
                         <PlayCircle className="h-4 w-4" />
