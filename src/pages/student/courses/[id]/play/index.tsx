@@ -12,27 +12,48 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type QuizMeta = {
+  _id?: string;
+  title: string;
+  instructions?: string;
+  courseId?: string;
+  moduleId?: string;
+  timeLimitSeconds?: number;
+  attemptsAllowed?: number;
+  passMarkPercent?: number;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
+  status?: "draft" | "published" | "archived" | string;
+  availableFrom?: string; // ISO
+  availableUntil?: string; // ISO
+};
 
 type Lesson = {
-  id: string;
+  _id: string;
   title: string;
   durationMinutes?: number;
   isPreview?: boolean;
   isCompleted?: boolean;
-  videoUrl?: string;
-  type?: string; // "quiz" | "video" | etc.
+  video?: {
+    durationSeconds: number;
+    transcript: string;
+    url: string;
+  };
+  type?: string; // "quiz" | "lesson" | etc.
+  quiz?: QuizMeta; // ✅ quiz metadata
 };
 
 type Module = {
-  id: string;
+  _id: string;
   title: string;
   position: number;
   lessons: Lesson[];
 };
 
 type CourseDetail = {
-  id: string;
+  _id: string;
   title: string;
   category: string;
   level: string;
@@ -80,15 +101,36 @@ type ApiModule = {
 };
 
 type ApiLesson = {
-  id: string;
+  _id: string;
   title: string;
   createdAt: string;
-  courseId: string;
-  moduleId: string;
+  courseId: any;
+  moduleId: any;
   type: string; // "quiz" | "video" | etc.
-  // durationMinutes?: number;
-  // videoUrl?: string;
+  quiz?: QuizMeta; // ✅ matches backend /lessons/with-quiz
 };
+
+// Helper: is quiz currently open/available for student?
+function isQuizCurrentlyOpen(quiz?: QuizMeta): boolean {
+  if (!quiz) return false;
+
+  // status check
+  if (quiz.status && quiz.status !== "published") return false;
+
+  const now = new Date();
+
+  if (quiz.availableFrom) {
+    const from = new Date(quiz.availableFrom);
+    if (now < from) return false;
+  }
+
+  if (quiz.availableUntil) {
+    const until = new Date(quiz.availableUntil);
+    if (now > until) return false;
+  }
+
+  return true;
+}
 
 export default function StudentCourseDetailPage() {
   const router = useRouter();
@@ -99,6 +141,7 @@ export default function StudentCourseDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [currentLessonId, setCurrentLessonId] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Fetch course + modules + lessons
   useEffect(() => {
@@ -129,24 +172,17 @@ export default function StudentCourseDetailPage() {
         // Group lessons by moduleId
         const lessonsByModule = new Map<string, Lesson[]>();
         for (const l of apiLessons) {
-          const lesson: Lesson = {
-            id: l.id,
-            title: l.title,
-            type: l.type,
-            // durationMinutes: l.durationMinutes,
-            // videoUrl: l.videoUrl,
-            isPreview: false,
-            isCompleted: false,
-          };
-
-          const existing = lessonsByModule.get(l.moduleId) ?? [];
-          existing.push(lesson);
-          lessonsByModule.set(l.moduleId, existing);
+          const moduleId = l.moduleId?._id;
+          if (!moduleId) continue;
+          const existing = lessonsByModule.get(moduleId) ?? [];
+          // l already has quiz, type, etc., it fits Lesson
+          existing.push(l as Lesson);
+          lessonsByModule.set(moduleId, existing);
         }
 
         // Map modules with attached lessons
         const modules: Module[] = apiModules.map((m) => ({
-          id: m._id,
+          _id: m._id,
           title: m.title,
           position: m.position ?? 0,
           lessons: lessonsByModule.get(m._id) ?? [],
@@ -176,7 +212,7 @@ export default function StudentCourseDetailPage() {
           totalMinutes > 0 ? Math.max(1, Math.round(totalMinutes / 60)) : 0;
 
         const mappedCourse: CourseDetail = {
-          id: apiCourse._id,
+          _id: apiCourse._id, // ✅ use _id consistently
           title: apiCourse.title,
           category: categoryTitle,
           level: apiCourse.level ?? "Beginner",
@@ -207,16 +243,41 @@ export default function StudentCourseDetailPage() {
   // Initialize current lesson when lessons change
   useEffect(() => {
     if (!currentLessonId && flatLessons.length > 0) {
-      setCurrentLessonId(flatLessons[0].id);
+      setCurrentLessonId(flatLessons[0]._id);
     }
   }, [flatLessons, currentLessonId]);
 
   const currentLesson =
-    flatLessons.find((l) => l.id === currentLessonId) ?? flatLessons[0];
+    flatLessons.find((l) => l._id === currentLessonId) ?? flatLessons[0];
+
+  // Autoplay when current lesson changes
+  useEffect(() => {
+    if (currentLesson?.video?.url && videoRef.current) {
+      videoRef.current.load(); // reset the player
+      const playPromise = videoRef.current.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // If autoplay blocked (no interaction), you can mute + retry
+          if (!videoRef.current) return;
+          videoRef.current.muted = true;
+          videoRef.current.play().catch(() => {
+            // ignore if still blocked
+          });
+        });
+      }
+    }
+  }, [currentLessonId, currentLesson?.video?.url]);
 
   const handleLessonClick = (lessonId: string) => {
     setCurrentLessonId(lessonId);
   };
+
+  // Quiz availability for current lesson
+  const isCurrentLessonQuiz = currentLesson?.type === "quiz";
+  const isCurrentQuizOpen = isCurrentLessonQuiz
+    ? isQuizCurrentlyOpen(currentLesson.quiz)
+    : false;
 
   return (
     <>
@@ -272,11 +333,12 @@ export default function StudentCourseDetailPage() {
                   {/* Player card */}
                   <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                     <div className="aspect-video bg-slate-900 flex items-center justify-center">
-                      {currentLesson?.videoUrl &&
-                      currentLesson.type !== "quiz" ? (
+                      {currentLesson?.video?.url &&
+                      currentLesson?.type === "lesson" ? (
                         <video
-                          key={currentLesson.id}
-                          src={currentLesson.videoUrl}
+                          ref={videoRef}
+                          key={currentLesson._id}
+                          src={currentLesson.video?.url}
                           controls
                           className="w-full h-full"
                         />
@@ -285,7 +347,9 @@ export default function StudentCourseDetailPage() {
                           <Video className="h-10 w-10" />
                           <span className="text-xs text-slate-300">
                             {currentLesson?.type === "quiz"
-                              ? "This is a quiz lesson. Open the quiz from the sidebar."
+                              ? isCurrentQuizOpen
+                                ? "This is a quiz lesson. Start the quiz from below."
+                                : "This quiz is not currently available."
                               : "No video available for this lesson"}
                           </span>
                         </div>
@@ -333,14 +397,24 @@ export default function StudentCourseDetailPage() {
                       </div>
 
                       <div className="mt-3 flex items-center gap-2">
-                        {currentLesson?.type === "quiz" ? (
-                          <Link
-                            href={`/student/courses/${course.id}/quiz/${currentLesson.id}`}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
-                          >
-                            <FileText className="h-4 w-4" />
-                            Take Quiz
-                          </Link>
+                        {isCurrentLessonQuiz ? (
+                          isCurrentQuizOpen ? (
+                            <Link
+                              href={`/student/courses/${course._id}/quiz/${currentLesson._id}`}
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
+                            >
+                              <FileText className="h-4 w-4" />
+                              Take Quiz
+                            </Link>
+                          ) : (
+                            <button
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed"
+                              disabled
+                            >
+                              <FileText className="h-4 w-4" />
+                              Quiz not available
+                            </button>
+                          )
                         ) : (
                           <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
                             <PlayCircle className="h-4 w-4" />
@@ -381,10 +455,10 @@ export default function StudentCourseDetailPage() {
                   <div className="space-y-3">
                     {course.modules
                       .slice()
-                      .sort((a, b) => a.position - b.position)
+                      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
                       .map((mod) => (
                         <div
-                          key={mod.id}
+                          key={mod._id}
                           className="rounded-xl border border-slate-100 bg-slate-50/60"
                         >
                           <div className="px-3 py-2.5 flex items-center justify-between">
@@ -403,14 +477,15 @@ export default function StudentCourseDetailPage() {
 
                           <div className="border-t border-slate-100 divide-y divide-slate-100">
                             {mod.lessons.map((lesson, index) => {
-                              const isActive = lesson.id === currentLessonId;
+                              const isActive = lesson._id === currentLessonId;
                               const isQuiz = lesson.type === "quiz";
+                              const quizOpen = isQuizCurrentlyOpen(lesson.quiz);
 
                               return (
                                 <button
-                                  key={lesson.id}
+                                  key={lesson._id}
                                   type="button"
-                                  onClick={() => handleLessonClick(lesson.id)}
+                                  onClick={() => handleLessonClick(lesson._id)}
                                   className={`w-full px-3 py-2 flex items-center justify-between text-left text-xs ${
                                     isActive
                                       ? "bg-white"
@@ -457,13 +532,19 @@ export default function StudentCourseDetailPage() {
 
                                   <div className="ml-3 flex items-center">
                                     {isQuiz ? (
-                                      <Link
-                                        href={`/student/courses/${course.id}/quiz/${currentLesson.id}`}
-                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900 text-white text-[11px]"
-                                      >
-                                        <FileText className="h-3 w-3" />
-                                        Take Quiz
-                                      </Link>
+                                      quizOpen ? (
+                                        <Link
+                                          href={`/student/courses/${course._id}/quiz/${lesson._id}`}
+                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900 text-white text-[11px]"
+                                        >
+                                          <FileText className="h-3 w-3" />
+                                          Take Quiz
+                                        </Link>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-400">
+                                          Not available
+                                        </span>
+                                      )
                                     ) : isActive ? (
                                       <PlayCircle className="h-4 w-4 text-slate-900" />
                                     ) : lesson.isCompleted ? (

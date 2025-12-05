@@ -1,4 +1,5 @@
 import AdminLayout from "@/components/admin/layout/AdminLayout";
+import { FileUploader } from "@/components/ui/FileUploader";
 import apiRequest from "@/lib/axios";
 import { Toastr } from "@/lib/toastr";
 import { Loader2, Save } from "lucide-react";
@@ -153,16 +154,28 @@ export default function NewLessonPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-600 dark:text-neutral-400 mb-1">
-                Video URL
-              </label>
-              <input
+              <FileUploader
+                label="Video File"
+                name="videoUrl"
+                value={form.videoUrl}
+                onUrlChange={(url) =>
+                  setForm((f) => ({
+                    ...f,
+                    videoUrl: (url as string) ?? "",
+                  }))
+                }
+                endpoint="/files/video"
+                fileType="video"
+                accept="video/*"
+                helperText="Supported formats: MP4, MOV, AVI, WEBM. Max size: 200MB."
+              />
+              {/* <input
                 name="videoUrl"
                 value={form.videoUrl}
                 onChange={onChange}
                 placeholder="https://..."
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 outline-none focus:ring-2 focus:ring-primary/40"
-              />
+              /> */}
             </div>
 
             <div>

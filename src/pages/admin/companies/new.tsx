@@ -13,7 +13,6 @@ export default function NewCompanyPage() {
     name: "",
     desc: "",
     seat: 0,
-    coursesText: "", // textarea -> array
   });
 
   const onChange = (
@@ -31,10 +30,6 @@ export default function NewCompanyPage() {
         name: form.name,
         desc: form.desc || undefined,
         seat: Number(form.seat) || 0,
-        courses: form.coursesText
-          .split("\n")
-          .map((c) => c.trim())
-          .filter(Boolean),
       };
 
       await apiRequest.post("/companies", payload);
@@ -103,24 +98,6 @@ export default function NewCompanyPage() {
               onChange={onChange}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm outline-none focus:ring-2 focus:ring-primary/30"
             />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-              Courses
-            </label>
-            <textarea
-              name="coursesText"
-              rows={4}
-              placeholder={"React Fundamentals\nNestJS Advanced"}
-              value={form.coursesText}
-              onChange={onChange}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            <p className="mt-1 text-[11px] text-slate-400">
-              One course per line. These are the courses assigned to this
-              company.
-            </p>
           </div>
 
           <div className="flex items-center justify-end gap-3">

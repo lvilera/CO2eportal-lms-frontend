@@ -27,7 +27,7 @@ type Course = {
   subtitle?: string;
   description?: string;
   thumbnailUrl?: string;
-  category?: string | { _id: string; title?: string };
+  categoryId?: string | { _id: string; title?: string };
   tags?: string[];
   level: "beginner" | "intermediate" | "advanced";
   language?: string;
@@ -55,7 +55,7 @@ export default function EditCourse() {
     subtitle: "",
     description: "",
     thumbnailUrl: "",
-    category: "",
+    categoryId: "",
     tags: "" as string, // comma separated input
     level: "beginner",
     language: "en",
@@ -85,7 +85,7 @@ export default function EditCourse() {
         subtitle: form.subtitle || undefined,
         description: form.description || undefined,
         thumbnailUrl: form.thumbnailUrl || undefined,
-        category: form.category || undefined,
+        categoryId: form.categoryId || undefined,
         tags: form.tags
           ? form.tags
               .split(",")
@@ -163,10 +163,10 @@ export default function EditCourse() {
           subtitle: course.subtitle || "",
           description: course.description || "",
           thumbnailUrl: course.thumbnailUrl || "",
-          category:
-            typeof course.category === "string"
-              ? course.category
-              : course.category?._id || "",
+          categoryId:
+            typeof course.categoryId === "string"
+              ? course.categoryId
+              : course.categoryId?._id || "",
           tags: course.tags?.join(", ") || "",
           level: course.level || "beginner",
           language: course.language || "en",
@@ -239,8 +239,8 @@ export default function EditCourse() {
                   Category
                 </label>
                 <select
-                  name="category"
-                  value={form.category}
+                  name="categoryId"
+                  value={form.categoryId}
                   onChange={onChange}
                   disabled={loadingCategories || categories.length === 0}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 outline-none focus:ring-2 focus:ring-primary/40"
