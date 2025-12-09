@@ -40,7 +40,7 @@ export default function NewModule() {
       });
       Toastr.success("Saved successfully!");
       // Adjust redirect as needed (e.g. modules list for that course)
-      router.push(`/admin/courses/`);
+      router.push(`/admin/courses/${courseId}/modules`);
     } catch (err: any) {
       Toastr.error(err?.message);
     } finally {
@@ -49,7 +49,7 @@ export default function NewModule() {
   };
 
   const handleCancel = () => {
-    router.push(`/admin/courses/`);
+    router.push(`/admin/courses/${courseId}/modules`);
   };
 
   return (

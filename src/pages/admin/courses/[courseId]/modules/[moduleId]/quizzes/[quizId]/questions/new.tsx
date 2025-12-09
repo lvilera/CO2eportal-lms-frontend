@@ -232,7 +232,9 @@ export default function NewQuestionPage() {
 
       Toastr.success("Saved successfully!");
       // Redirect after create – adjust to your own questions list route
-      router.push(`/admin/courses/${courseId}/modules`);
+      router.push(
+        `/admin/courses/${courseId}/modules/${moduleId}/quizzes/${quizId}/questions`
+      );
     } catch (err: any) {
       Toastr.error(err?.message);
     } finally {
@@ -242,7 +244,9 @@ export default function NewQuestionPage() {
 
   const handleCancel = () => {
     if (courseId) {
-      router.push(`/admin/courses/${courseId}/modules`);
+      router.push(
+        `/admin/courses/${courseId}/modules/${moduleId}/quizzes/${quizId}/questions`
+      );
     } else {
       router.push("/admin/courses");
     }
