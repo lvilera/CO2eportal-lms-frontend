@@ -8,7 +8,7 @@ import { useState } from "react";
 
 export default function NewModule() {
   const router = useRouter();
-  const { id } = router.query; // courseId
+  const { courseId } = router.query; // courseId
 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -29,8 +29,6 @@ export default function NewModule() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const courseId = Array.isArray(id) ? id[0] : id;
-    if (!courseId) return;
 
     setSaving(true);
     try {
