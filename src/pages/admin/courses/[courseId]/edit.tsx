@@ -32,6 +32,7 @@ type Course = {
   level: "beginner" | "intermediate" | "advanced";
   language?: string;
   price?: number;
+  durationMinutes?: number;
   isPublished?: boolean;
   instructorId?: string | { _id: string; email?: string };
 };
@@ -60,6 +61,7 @@ export default function EditCourse() {
     level: "beginner",
     language: "en",
     price: 0,
+    durationMinutes: 0,
     isPublished: false,
     instructorId: "",
   });
@@ -95,6 +97,7 @@ export default function EditCourse() {
         level: form.level as "beginner" | "intermediate" | "advanced",
         language: form.language || "en",
         price: Number(form.price) || 0,
+        durationMinutes: Number(form.durationMinutes) || 0,
         isPublished: form.isPublished,
         instructorId: form.instructorId || undefined,
       };
@@ -171,6 +174,7 @@ export default function EditCourse() {
           level: course.level || "beginner",
           language: course.language || "en",
           price: course.price ?? 0,
+          durationMinutes: course.durationMinutes ?? 0,
           isPublished: course.isPublished ?? false,
           instructorId:
             typeof course.instructorId === "string"
@@ -268,6 +272,23 @@ export default function EditCourse() {
                   min="0"
                   step="0.01"
                   value={form.price}
+                  onChange={onChange}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-neutral-400 mb-1">
+                  Duration Minutes
+                </label>
+                <input
+                  name="durationMinutes"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.durationMinutes}
                   onChange={onChange}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 outline-none focus:ring-2 focus:ring-primary/40"
                 />
