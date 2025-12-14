@@ -1,12 +1,25 @@
 import { useAuth } from "@/context/AuthContext";
 import { useUI } from "@/context/UIContext";
+import { getCurrentUser } from "@/utils/token";
 import { Bell, Menu, Moon, Sun } from "lucide-react";
+import { useRouter } from "next/router";
+import { useEffect } from "react";
 import UserMenu from "./UserMenu";
 
 export default function Header() {
   const { toggleSidebar, theme, toggleTheme } = useUI();
   const { currentUser, logout } = useAuth();
-
+  const router = useRouter();
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      if (currentUser.role == "admin") {
+        router.push("/admin");
+      } else if (currentUser.role == "instructor") {
+        router.push("/instructor");
+      }
+    }
+  }, [router]);
   return (
     <header className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 backdrop-blur flex items-center px-4 justify-between">
       <div className="flex items-center gap-2">
