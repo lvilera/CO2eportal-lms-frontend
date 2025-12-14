@@ -1,7 +1,9 @@
 // pages/student/courses/[id].tsx
 import StudentLayout from "@/components/student/layout/StudentLayout";
 import apiRequest from "@/lib/axios";
+import { getCurrentUser } from "@/utils/token";
 import {
+  Award,
   BookOpen,
   CheckCircle2,
   Clock,
@@ -26,8 +28,8 @@ type QuizMeta = {
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
   status?: "draft" | "published" | "archived" | string;
-  availableFrom?: string; // ISO
-  availableUntil?: string; // ISO
+  availableFrom?: string;
+  availableUntil?: string;
 };
 
 type Lesson = {
@@ -36,13 +38,13 @@ type Lesson = {
   durationMinutes?: number;
   isPreview?: boolean;
   isCompleted?: boolean;
-  video?: {
-    durationSeconds: number;
-    transcript: string;
-    url: string;
-  };
-  type?: string; // "quiz" | "lesson" | etc.
-  quiz?: QuizMeta; // ✅ quiz metadata
+  video?: { durationSeconds: number; transcript: string; url: string };
+  type?: string; // "quiz" | "lesson"
+  quiz?: QuizMeta;
+  position?: number;
+
+  moduleId?: any;
+  createdAt?: string;
 };
 
 type Module = {
@@ -59,44 +61,28 @@ type CourseDetail = {
   level: string;
   instructor: string;
   totalHours: number;
-  progress: number; // 0-100
+  progress: number;
   description: string;
   modules: Module[];
 };
 
-// --- API types based on your responses ---
 type ApiCourse = {
   _id: string;
   title: string;
-  subtitle?: string;
   description?: string;
-  thumbnailUrl?: string;
   categoryId?:
-    | {
-        _id: string;
-        title: string;
-        slug: string;
-        subtitle?: string;
-      }
+    | { _id: string; title: string; slug: string; subtitle?: string }
     | string;
   level?: string;
-  language?: string;
   durationMinutes?: number;
   instructorId?:
-    | {
-        _id: string;
-        firstName?: string;
-        lastName?: string;
-        email?: string;
-      }
+    | { _id: string; firstName?: string; lastName?: string; email?: string }
     | string;
 };
 
 type ApiModule = {
   _id: string;
-  courseId: string | ApiCourse;
   title: string;
-  description?: string;
   position?: number;
 };
 
@@ -104,51 +90,98 @@ type ApiLesson = {
   _id: string;
   title: string;
   createdAt: string;
-  courseId: any;
   moduleId: any;
-  type: string; // "quiz" | "video" | etc.
-  quiz?: QuizMeta; // ✅ matches backend /lessons/with-quiz
+  type: string;
+  quiz?: QuizMeta;
+  durationMinutes?: number;
+  isPreview?: boolean;
+  position?: number;
+  video?: { url: string; durationSeconds: number; transcript: string };
 };
 
-// Helper: is quiz currently open/available for student?
-function isQuizCurrentlyOpen(quiz?: QuizMeta): boolean {
-  if (!quiz) return false;
+// --- Certificates ---
+type Certificate = {
+  _id?: string;
+  userId: string;
+  courseId: string;
+  certificateNumber?: string;
+  issuedAt?: string;
+  metadata?: any;
+};
 
-  // status check
-  if (quiz.status && quiz.status !== "published") return false;
-
-  const now = new Date();
-
-  if (quiz.availableFrom) {
-    const from = new Date(quiz.availableFrom);
-    if (now < from) return false;
-  }
+// Quiz rule: if expired => expired; else eligible anytime (if published)
+function getQuizAvailability(
+  quiz?: QuizMeta
+): "eligible" | "expired" | "unavailable" {
+  if (!quiz) return "unavailable";
+  if (quiz.status && quiz.status !== "published") return "unavailable";
 
   if (quiz.availableUntil) {
+    const now = new Date();
     const until = new Date(quiz.availableUntil);
-    if (now > until) return false;
+    if (now > until) return "expired";
   }
 
-  return true;
+  return "eligible";
+}
+
+function clampPercent(n: number) {
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+// lightweight uniq id for cert number fallback (backend should ideally generate)
+function genCertNumber(courseId: string, userId: string) {
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:.TZ]/g, "")
+    .slice(0, 14);
+  const c = (courseId || "").slice(-6);
+  const u = (userId || "").slice(-6);
+  return `CERT-${stamp}-${c}-${u}`.toUpperCase();
 }
 
 export default function StudentCourseDetailPage() {
   const router = useRouter();
+  const currentUser = getCurrentUser();
   const { id } = router.query;
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
+  const [enrollment, setEnrollment] = useState<any>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [currentLessonId, setCurrentLessonId] = useState<string | null>(null);
+  const [preferredLessonId, setPreferredLessonId] = useState<string | null>(
+    null
+  );
+
+  // local completion tracking (video ended)
+  const [completedByUser, setCompletedByUser] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  // certificate UX state
+  const [certLoading, setCertLoading] = useState(false);
+  const [certError, setCertError] = useState<string | null>(null);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Fetch course + modules + lessons
+  // Fetch course + modules + lessons + enrollment
   useEffect(() => {
     if (!router.isReady || !id) return;
     if (Array.isArray(id)) return;
 
     const courseId = id as string;
+
+    apiRequest
+      .post(`/enrollments/`, { courseId, userId: currentUser?.id })
+      .then((res) => {
+        setEnrollment(res?.data);
+        const lastLessonId = res?.data?.currentLesson?._id;
+        if (lastLessonId) setPreferredLessonId(lastLessonId);
+      })
+      .catch((err) => console.log(err));
 
     const fetchData = async () => {
       try {
@@ -169,32 +202,46 @@ export default function StudentCourseDetailPage() {
           ? lessonsRes.data.items
           : [];
 
-        // Group lessons by moduleId
         const lessonsByModule = new Map<string, Lesson[]>();
         for (const l of apiLessons) {
           const moduleId = l.moduleId?._id;
           if (!moduleId) continue;
+
           const existing = lessonsByModule.get(moduleId) ?? [];
-          // l already has quiz, type, etc., it fits Lesson
-          existing.push(l as Lesson);
+          existing.push({
+            ...(l as any),
+            moduleId: l.moduleId,
+            createdAt: l.createdAt,
+          } as Lesson);
           lessonsByModule.set(moduleId, existing);
         }
 
-        // Map modules with attached lessons
-        const modules: Module[] = apiModules.map((m) => ({
-          _id: m._id,
-          title: m.title,
-          position: m.position ?? 0,
-          lessons: lessonsByModule.get(m._id) ?? [],
-        }));
+        const modules: Module[] = apiModules.map((m) => {
+          const rawLessons = lessonsByModule.get(m._id) ?? [];
+          const orderedLessons = rawLessons.slice().sort((a: any, b: any) => {
+            const ap = a?.position ?? 0;
+            const bp = b?.position ?? 0;
+            if (ap !== bp) return ap - bp;
 
-        // Category
+            const ad = a?.createdAt ? new Date(a.createdAt) : null;
+            const bd = b?.createdAt ? new Date(b.createdAt) : null;
+            if (ad && bd) return ad.getTime() - bd.getTime();
+            return 0;
+          });
+
+          return {
+            _id: m._id,
+            title: m.title,
+            position: m.position ?? 0,
+            lessons: orderedLessons,
+          };
+        });
+
         const categoryTitle =
           typeof apiCourse.categoryId === "object" && apiCourse.categoryId
             ? apiCourse.categoryId.title
             : "Uncategorized";
 
-        // Instructor
         let instructorName = "Unknown Instructor";
         if (
           apiCourse.instructorId &&
@@ -211,19 +258,17 @@ export default function StudentCourseDetailPage() {
         const totalHours =
           totalMinutes > 0 ? Math.max(1, Math.round(totalMinutes / 60)) : 0;
 
-        const mappedCourse: CourseDetail = {
-          _id: apiCourse._id, // ✅ use _id consistently
+        setCourse({
+          _id: apiCourse._id,
           title: apiCourse.title,
           category: categoryTitle,
           level: apiCourse.level ?? "Beginner",
           instructor: instructorName,
           totalHours,
-          progress: 0, // TODO: replace with real progress
+          progress: 0,
           description: apiCourse.description ?? "",
           modules,
-        };
-
-        setCourse(mappedCourse);
+        });
       } catch (err) {
         console.error("Failed to load course detail", err);
         setError("Failed to load course. Please try again later.");
@@ -235,49 +280,258 @@ export default function StudentCourseDetailPage() {
     fetchData();
   }, [id, router.isReady]);
 
-  const flatLessons: Lesson[] = useMemo(
-    () => (course ? course.modules.flatMap((m) => m.lessons) : []),
-    [course]
-  );
+  const flatLessons: Lesson[] = useMemo(() => {
+    if (!course) return [];
+    const sortedMods = course.modules
+      .slice()
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 
-  // Initialize current lesson when lessons change
+    return sortedMods.flatMap((m) => {
+      const orderedLessons = (m.lessons ?? [])
+        .slice()
+        .sort((a: any, b: any) => {
+          const ap = a?.position ?? 0;
+          const bp = b?.position ?? 0;
+          if (ap !== bp) return ap - bp;
+
+          const ad = a?.createdAt ? new Date(a.createdAt) : null;
+          const bd = b?.createdAt ? new Date(b.createdAt) : null;
+          if (ad && bd) return ad.getTime() - bd.getTime();
+          return 0;
+        });
+
+      return orderedLessons;
+    });
+  }, [course]);
+
+  // ✅ Course completion is a hard stop: once complete, no updates allowed.
+  const isCourseCompleted = useMemo(() => {
+    const progress = Number(enrollment?.progress ?? 0);
+    const hasCompletionDate = Boolean(enrollment?.completionDate);
+    return hasCompletionDate || progress >= 100;
+  }, [enrollment?.progress, enrollment?.completionDate]);
+
+  // Initialize current lesson: prefer enrollment.currentLesson
   useEffect(() => {
-    if (!currentLessonId && flatLessons.length > 0) {
-      setCurrentLessonId(flatLessons[0]._id);
+    if (flatLessons.length === 0) return;
+
+    if (currentLessonId && flatLessons.some((l) => l._id === currentLessonId))
+      return;
+
+    if (
+      preferredLessonId &&
+      flatLessons.some((l) => l._id === preferredLessonId)
+    ) {
+      setCurrentLessonId(preferredLessonId);
+      return;
     }
-  }, [flatLessons, currentLessonId]);
+
+    if (!currentLessonId) setCurrentLessonId(flatLessons[0]._id);
+  }, [flatLessons, currentLessonId, preferredLessonId]);
 
   const currentLesson =
     flatLessons.find((l) => l._id === currentLessonId) ?? flatLessons[0];
 
-  // Autoplay when current lesson changes
+  const currentIndex = useMemo(() => {
+    if (!currentLessonId) return -1;
+    return flatLessons.findIndex((l) => l._id === currentLessonId);
+  }, [flatLessons, currentLessonId]);
+
+  // previous = completed (for bold UI)
+  const completedLessonIds = useMemo(() => {
+    if (currentIndex <= 0) return new Set<string>();
+    return new Set(flatLessons.slice(0, currentIndex).map((l) => l._id));
+  }, [flatLessons, currentIndex]);
+
+  const completedModuleIds = useMemo(() => {
+    if (!course || currentIndex < 0) return new Set<string>();
+    const sortedMods = course.modules
+      .slice()
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+    const set = new Set<string>();
+    let runningIndex = 0;
+
+    for (const mod of sortedMods) {
+      const lessons = (mod.lessons ?? []).slice().sort((a: any, b: any) => {
+        const ap = a?.position ?? 0;
+        const bp = b?.position ?? 0;
+        if (ap !== bp) return ap - bp;
+
+        const ad = a?.createdAt ? new Date(a.createdAt) : null;
+        const bd = b?.createdAt ? new Date(b.createdAt) : null;
+        if (ad && bd) return ad.getTime() - bd.getTime();
+        return 0;
+      });
+
+      const moduleEndExclusive = runningIndex + lessons.length;
+
+      if (lessons.length > 0 && moduleEndExclusive <= currentIndex) {
+        set.add(mod._id);
+      }
+
+      runningIndex = moduleEndExclusive;
+    }
+
+    return set;
+  }, [course, currentIndex]);
+
+  // Progress = enrollment.progress if completed (locked), else computed
+  const computedProgressPercent = useMemo(() => {
+    const total = flatLessons.length;
+    if (total === 0) return 0;
+
+    const union = new Set<string>([
+      ...Array.from(completedLessonIds),
+      ...Array.from(completedByUser),
+    ]);
+
+    return clampPercent((union.size / total) * 100);
+  }, [flatLessons.length, completedLessonIds, completedByUser]);
+
+  const progressPercent = useMemo(() => {
+    if (isCourseCompleted) return 100;
+    const backendProgress = enrollment?.progress;
+    if (typeof backendProgress === "number" && backendProgress > 0) {
+      return clampPercent(backendProgress);
+    }
+    return computedProgressPercent;
+  }, [isCourseCompleted, enrollment?.progress, computedProgressPercent]);
+
+  // Autoplay when lesson changes (video)
   useEffect(() => {
-    if (currentLesson?.video?.url && videoRef.current) {
-      videoRef.current.load(); // reset the player
+    if (
+      currentLesson?.video?.url &&
+      currentLesson?.type === "lesson" &&
+      videoRef.current
+    ) {
+      videoRef.current.load();
       const playPromise = videoRef.current.play();
 
       if (playPromise !== undefined) {
         playPromise.catch(() => {
-          // If autoplay blocked (no interaction), you can mute + retry
           if (!videoRef.current) return;
           videoRef.current.muted = true;
-          videoRef.current.play().catch(() => {
-            // ignore if still blocked
-          });
+          videoRef.current.play().catch(() => {});
         });
       }
     }
-  }, [currentLessonId, currentLesson?.video?.url]);
+  }, [currentLessonId, currentLesson?.video?.url, currentLesson?.type]);
+
+  // ✅ Persist currentLesson/currentModule/progress ONLY if NOT completed
+  useEffect(() => {
+    if (isCourseCompleted) return;
+    if (!currentLessonId) return;
+    if (!enrollment?._id) return;
+
+    const moduleId =
+      currentLesson?.moduleId?._id || currentLesson?.moduleId || null;
+
+    apiRequest
+      .put(`/enrollments/${enrollment?._id}`, {
+        currentLesson: currentLessonId,
+        currentModule: moduleId,
+        progress: progressPercent,
+      })
+      .then((res) => {
+        if (res?.data) setEnrollment(res.data);
+      })
+      .catch((err) => console.log(err));
+  }, [
+    isCourseCompleted,
+    currentLessonId,
+    enrollment?._id,
+    currentLesson?.moduleId,
+    progressPercent,
+  ]);
+
+  // ✅ Mark lesson completed when video ends; if ALL lessons complete => set completionDate
+  const handleVideoEnded = async () => {
+    if (isCourseCompleted) return;
+    if (!currentLessonId) return;
+
+    setCompletedByUser((prev) => {
+      const next = new Set(prev);
+      next.add(currentLessonId);
+      return next;
+    });
+
+    const total = flatLessons.length;
+    if (total === 0) return;
+
+    const union = new Set<string>([
+      ...Array.from(completedLessonIds),
+      ...Array.from(completedByUser),
+      currentLessonId,
+    ]);
+
+    const allCompleted = union.size >= total;
+
+    if (allCompleted && enrollment?._id) {
+      const moduleId =
+        currentLesson?.moduleId?._id || currentLesson?.moduleId || null;
+
+      try {
+        const res = await apiRequest.put(`/enrollments/${enrollment?._id}`, {
+          currentLesson: currentLessonId,
+          currentModule: moduleId,
+          progress: 100,
+          completionDate: new Date().toISOString(),
+        });
+        if (res?.data) setEnrollment(res.data);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  };
 
   const handleLessonClick = (lessonId: string) => {
     setCurrentLessonId(lessonId);
   };
 
-  // Quiz availability for current lesson
   const isCurrentLessonQuiz = currentLesson?.type === "quiz";
-  const isCurrentQuizOpen = isCurrentLessonQuiz
-    ? isQuizCurrentlyOpen(currentLesson.quiz)
-    : false;
+  const currentQuizStatus = isCurrentLessonQuiz
+    ? getQuizAvailability(currentLesson.quiz)
+    : "unavailable";
+
+  // ✅ Create certificate (POST /certificates) then route user to certificate page
+  const handleViewCertificate = async () => {
+    if (!course?._id) return;
+    const userId = currentUser?.id;
+
+    if (!userId) {
+      setCertError("User not found. Please login again.");
+      return;
+    }
+
+    setCertLoading(true);
+    setCertError(null);
+
+    try {
+      const payload: Certificate = {
+        userId,
+        courseId: course._id,
+        certificateNumber: genCertNumber(course._id, userId),
+        issuedAt: new Date().toISOString(),
+        metadata: {
+          enrollmentId: enrollment?._id,
+        },
+      };
+
+      // If backend already prevents duplicates, this is idempotent.
+      // If not, backend should ideally upsert/unique on (userId, courseId).
+      const response = await apiRequest.post("/certificates", payload);
+      router.push(`/student/certificates/${response.data._id}/`);
+    } catch (err: any) {
+      console.log(err);
+      setCertError(
+        err?.response?.data?.message ||
+          "Failed to create certificate. Please try again."
+      );
+    } finally {
+      setCertLoading(false);
+    }
+  };
 
   return (
     <>
@@ -286,6 +540,7 @@ export default function StudentCourseDetailPage() {
           {course ? `${course.title} · Continue Course` : "Course · Continue"}
         </title>
       </Head>
+
       <StudentLayout>
         <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
           {loading ? (
@@ -310,27 +565,62 @@ export default function StudentCourseDetailPage() {
                 >
                   ← Back to Active Courses
                 </button>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  {course.title}
-                </h1>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5">
-                    <BookOpen className="h-3 w-3 mr-1" />
-                    {course.category}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5">
-                    {course.level}
-                  </span>
-                  <span>Instructor: {course.instructor}</span>
-                  <span>• {course.totalHours} hrs total</span>
+
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h1 className="text-2xl font-semibold text-slate-900">
+                      {course.title}
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-1">
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5">
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        {course.category}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5">
+                        {course.level}
+                      </span>
+                      <span>Instructor: {course.instructor}</span>
+                      <span>• {course.totalHours} hrs total</span>
+                      {isCourseCompleted && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Completed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ✅ View Certificate (creates certificate first) */}
+                  {isCourseCompleted && (
+                    <div className="shrink-0 flex flex-col items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={handleViewCertificate}
+                        disabled={certLoading}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold ${
+                          certLoading
+                            ? "bg-emerald-200 text-emerald-900 cursor-wait"
+                            : "bg-emerald-600 text-white hover:bg-emerald-500"
+                        }`}
+                      >
+                        <Award className="h-4 w-4" />
+                        {certLoading
+                          ? "Preparing Certificate..."
+                          : "View Certificate"}
+                      </button>
+
+                      {certError && (
+                        <p className="text-[11px] text-red-600">{certError}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Main layout: player + syllabus */}
+              {/* Main layout */}
               <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6">
-                {/* LEFT: Player + current lesson info */}
+                {/* LEFT */}
                 <div className="space-y-4">
-                  {/* Player card */}
                   <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                     <div className="aspect-video bg-slate-900 flex items-center justify-center">
                       {currentLesson?.video?.url &&
@@ -340,16 +630,17 @@ export default function StudentCourseDetailPage() {
                           key={currentLesson._id}
                           src={currentLesson.video?.url}
                           controls
+                          onEnded={handleVideoEnded}
                           className="w-full h-full"
                         />
                       ) : (
                         <div className="flex flex-col items-center text-slate-100 gap-2">
                           <Video className="h-10 w-10" />
-                          <span className="text-xs text-slate-300">
+                          <span className="text-xs text-slate-300 text-center px-6">
                             {currentLesson?.type === "quiz"
-                              ? isCurrentQuizOpen
-                                ? "This is a quiz lesson. Start the quiz from below."
-                                : "This quiz is not currently available."
+                              ? currentQuizStatus === "expired"
+                                ? "This quiz has expired."
+                                : "This is a quiz lesson. Start the quiz from below."
                               : "No video available for this lesson"}
                           </span>
                         </div>
@@ -363,6 +654,7 @@ export default function StudentCourseDetailPage() {
                       <h2 className="text-sm font-semibold text-slate-900">
                         {currentLesson?.title ?? "Select a lesson"}
                       </h2>
+
                       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                         {currentLesson?.durationMinutes !== undefined && (
                           <span className="inline-flex items-center gap-1">
@@ -375,7 +667,10 @@ export default function StudentCourseDetailPage() {
                             Preview
                           </span>
                         )}
-                        {currentLesson?.isCompleted && (
+                        {(completedLessonIds.has(currentLesson?._id || "") ||
+                          completedByUser.has(currentLesson?._id || "") ||
+                          currentLesson?.isCompleted ||
+                          isCourseCompleted) && (
                           <span className="inline-flex items-center gap-1 text-emerald-600">
                             <CheckCircle2 className="h-3 w-3" />
                             Completed
@@ -386,19 +681,27 @@ export default function StudentCourseDetailPage() {
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center justify-between text-[11px] text-slate-500">
                           <span>Course progress</span>
-                          <span>{course.progress}%</span>
+                          <span>{progressPercent}%</span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                           <div
                             className="h-full rounded-full bg-slate-900"
-                            style={{ width: `${course.progress}%` }}
+                            style={{ width: `${progressPercent}%` }}
                           />
                         </div>
                       </div>
 
                       <div className="mt-3 flex items-center gap-2">
-                        {isCurrentLessonQuiz ? (
-                          isCurrentQuizOpen ? (
+                        {isCourseCompleted ? (
+                          <button
+                            disabled
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            Course Completed
+                          </button>
+                        ) : isCurrentLessonQuiz ? (
+                          currentQuizStatus === "eligible" ? (
                             <Link
                               href={`/student/courses/${course._id}/quiz/${currentLesson._id}`}
                               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
@@ -406,13 +709,21 @@ export default function StudentCourseDetailPage() {
                               <FileText className="h-4 w-4" />
                               Take Quiz
                             </Link>
-                          ) : (
+                          ) : currentQuizStatus === "expired" ? (
                             <button
-                              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed"
                               disabled
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-100 text-red-600 text-xs font-medium cursor-not-allowed"
                             >
                               <FileText className="h-4 w-4" />
-                              Quiz not available
+                              Quiz Expired
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed"
+                            >
+                              <FileText className="h-4 w-4" />
+                              Quiz Unavailable
                             </button>
                           )
                         ) : (
@@ -421,15 +732,38 @@ export default function StudentCourseDetailPage() {
                             Continue Lesson
                           </button>
                         )}
+
                         <button className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900">
                           <FileText className="h-3 w-3" />
                           View Resources
                         </button>
+
+                        {/* duplicate CTA in body (optional) */}
+                        {isCourseCompleted && (
+                          <button
+                            type="button"
+                            onClick={handleViewCertificate}
+                            disabled={certLoading}
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold ${
+                              certLoading
+                                ? "bg-emerald-200 text-emerald-900 cursor-wait"
+                                : "bg-emerald-600 text-white hover:bg-emerald-500"
+                            }`}
+                          >
+                            <Award className="h-4 w-4" />
+                            {certLoading ? "Preparing..." : "View Certificate"}
+                          </button>
+                        )}
                       </div>
+
+                      {certError && (
+                        <p className="text-[11px] text-red-600 mt-2">
+                          {certError}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Course overview */}
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <h3 className="text-sm font-semibold text-slate-900 mb-1">
                       Course Overview
@@ -440,7 +774,7 @@ export default function StudentCourseDetailPage() {
                   </div>
                 </div>
 
-                {/* RIGHT: Modules & lessons */}
+                {/* RIGHT */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 max-h-[700px] overflow-y-auto">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-sm font-semibold text-slate-900">
@@ -456,109 +790,148 @@ export default function StudentCourseDetailPage() {
                     {course.modules
                       .slice()
                       .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-                      .map((mod) => (
-                        <div
-                          key={mod._id}
-                          className="rounded-xl border border-slate-100 bg-slate-50/60"
-                        >
-                          <div className="px-3 py-2.5 flex items-center justify-between">
-                            <div className="flex flex-col">
-                              <span className="text-[11px] uppercase tracking-wide text-slate-400">
-                                Module {mod.position}
-                              </span>
-                              <span className="text-xs font-semibold text-slate-900">
-                                {mod.title}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-slate-400">
-                              {mod.lessons.length} lessons
-                            </span>
-                          </div>
+                      .map((mod) => {
+                        const moduleCompleted =
+                          isCourseCompleted || completedModuleIds.has(mod._id);
 
-                          <div className="border-t border-slate-100 divide-y divide-slate-100">
-                            {mod.lessons.map((lesson, index) => {
-                              const isActive = lesson._id === currentLessonId;
-                              const isQuiz = lesson.type === "quiz";
-                              const quizOpen = isQuizCurrentlyOpen(lesson.quiz);
-
-                              return (
-                                <button
-                                  key={lesson._id}
-                                  type="button"
-                                  onClick={() => handleLessonClick(lesson._id)}
-                                  className={`w-full px-3 py-2 flex items-center justify-between text-left text-xs ${
-                                    isActive
-                                      ? "bg-white"
-                                      : "bg-transparent hover:bg-white/70"
+                        return (
+                          <div
+                            key={mod._id}
+                            className="rounded-xl border border-slate-100 bg-slate-50/60"
+                          >
+                            <div className="px-3 py-2.5 flex items-center justify-between">
+                              <div className="flex flex-col">
+                                <span className="text-[11px] uppercase tracking-wide text-slate-400">
+                                  Module {mod.position}
+                                </span>
+                                <span
+                                  className={`text-xs text-slate-900 ${
+                                    moduleCompleted
+                                      ? "font-bold"
+                                      : "font-semibold"
                                   }`}
                                 >
-                                  <div className="flex items-start gap-2">
-                                    <div className="mt-0.5 text-[10px] text-slate-400 w-4 text-right">
-                                      {index + 1}.
-                                    </div>
-                                    <div>
-                                      <div
-                                        className={`flex items-center gap-2 ${
-                                          isActive
-                                            ? "text-slate-900 font-semibold"
-                                            : "text-slate-700"
-                                        }`}
-                                      >
-                                        <span className="line-clamp-2">
-                                          {lesson.title}
-                                        </span>
-                                        {lesson.isPreview && (
-                                          <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[9px]">
-                                            Preview
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-                                        {lesson.durationMinutes !==
-                                          undefined && (
-                                          <span>
-                                            {lesson.durationMinutes} min
-                                          </span>
-                                        )}
-                                        {lesson.isCompleted && (
-                                          <span className="inline-flex items-center gap-1 text-emerald-600">
-                                            <CheckCircle2 className="h-3 w-3" />
-                                            Done
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
+                                  {mod.title}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-400">
+                                {mod.lessons.length} lessons
+                              </span>
+                            </div>
 
-                                  <div className="ml-3 flex items-center">
-                                    {isQuiz ? (
-                                      quizOpen ? (
-                                        <Link
-                                          href={`/student/courses/${course._id}/quiz/${lesson._id}`}
-                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900 text-white text-[11px]"
+                            <div className="border-t border-slate-100 divide-y divide-slate-100">
+                              {mod.lessons.map((lesson, index) => {
+                                const isActive = lesson._id === currentLessonId;
+                                const isQuiz = lesson.type === "quiz";
+                                const quizStatus = getQuizAvailability(
+                                  lesson.quiz
+                                );
+
+                                const derivedCompleted = completedLessonIds.has(
+                                  lesson._id
+                                );
+                                const userCompleted = completedByUser.has(
+                                  lesson._id
+                                );
+
+                                const isLessonCompleted =
+                                  isCourseCompleted ||
+                                  Boolean(lesson.isCompleted) ||
+                                  derivedCompleted ||
+                                  userCompleted;
+
+                                return (
+                                  <button
+                                    key={lesson._id}
+                                    type="button"
+                                    onClick={() =>
+                                      handleLessonClick(lesson._id)
+                                    }
+                                    className={`w-full px-3 py-2 flex items-center justify-between text-left text-xs ${
+                                      isActive
+                                        ? "bg-white"
+                                        : "bg-transparent hover:bg-white/70"
+                                    }`}
+                                  >
+                                    <div className="flex items-start gap-2">
+                                      <div className="mt-0.5 text-[10px] text-slate-400 w-4 text-right">
+                                        {index + 1}.
+                                      </div>
+
+                                      <div>
+                                        <div
+                                          className={`flex items-center gap-2 ${
+                                            isActive
+                                              ? "text-slate-900 font-semibold"
+                                              : isLessonCompleted
+                                              ? "text-slate-900 font-bold"
+                                              : "text-slate-700"
+                                          }`}
                                         >
-                                          <FileText className="h-3 w-3" />
-                                          Take Quiz
-                                        </Link>
+                                          <span className="line-clamp-2">
+                                            {lesson.title}
+                                          </span>
+                                          {lesson.isPreview && (
+                                            <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[9px]">
+                                              Preview
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                                          {lesson.durationMinutes !==
+                                            undefined && (
+                                            <span>
+                                              {lesson.durationMinutes} min
+                                            </span>
+                                          )}
+                                          {isLessonCompleted && (
+                                            <span className="inline-flex items-center gap-1 text-emerald-600">
+                                              <CheckCircle2 className="h-3 w-3" />
+                                              Done
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="ml-3 flex items-center">
+                                      {isQuiz ? (
+                                        quizStatus === "eligible" &&
+                                        !isCourseCompleted ? (
+                                          <Link
+                                            href={`/student/courses/${course._id}/quiz/${lesson._id}`}
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900 text-white text-[11px]"
+                                          >
+                                            <FileText className="h-3 w-3" />
+                                            Take Quiz
+                                          </Link>
+                                        ) : quizStatus === "expired" ? (
+                                          <span className="text-[10px] font-semibold text-red-600">
+                                            Expired
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] text-slate-400">
+                                            {isCourseCompleted
+                                              ? "Completed"
+                                              : "Unavailable"}
+                                          </span>
+                                        )
+                                      ) : isActive ? (
+                                        <PlayCircle className="h-4 w-4 text-slate-900" />
+                                      ) : isLessonCompleted ? (
+                                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                                       ) : (
-                                        <span className="text-[10px] text-slate-400">
-                                          Not available
-                                        </span>
-                                      )
-                                    ) : isActive ? (
-                                      <PlayCircle className="h-4 w-4 text-slate-900" />
-                                    ) : lesson.isCompleted ? (
-                                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                    ) : (
-                                      <PlayCircle className="h-4 w-4 text-slate-400" />
-                                    )}
-                                  </div>
-                                </button>
-                              );
-                            })}
+                                        <PlayCircle className="h-4 w-4 text-slate-400" />
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 </div>
               </div>

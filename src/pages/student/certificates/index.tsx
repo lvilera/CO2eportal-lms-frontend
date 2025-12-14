@@ -1,5 +1,7 @@
 // pages/student/certificates/index.tsx
 import StudentLayout from "@/components/student/layout/StudentLayout";
+import { useAuth } from "@/context/AuthContext";
+import apiRequest from "@/lib/axios";
 import {
   Award,
   BadgeCheck,
@@ -12,9 +14,44 @@ import {
 } from "lucide-react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type CertificateStatus = "issued" | "processing" | "revoked";
+
+type ApiCertificate = {
+  _id?: string;
+  userId: string;
+  courseId:
+    | string
+    | {
+        _id: string;
+        title?: string;
+        durationMinutes?: number;
+        level?: string;
+        categoryId?:
+          | {
+              _id: string;
+              title: string;
+            }
+          | string;
+        instructorId?:
+          | {
+              firstName?: string;
+              lastName?: string;
+              email?: string;
+            }
+          | string;
+      };
+  certificateNumber?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  verifiableUrl?: string;
+  metadata?: any;
+
+  // optional fields your backend might include
+  status?: CertificateStatus | string;
+  pdfUrl?: string;
+};
 
 type Certificate = {
   id: string;
@@ -31,50 +68,10 @@ type Certificate = {
   shareUrl?: string;
 };
 
-const MOCK_CERTIFICATES: Certificate[] = [
-  {
-    id: "c1",
-    certificateNumber: "CERT-2025-0001",
-    courseId: "course-1",
-    courseTitle: "Net Zero Carbon Strategy for Business",
-    category: "Sustainability · Intermediate",
-    instructor: "Dr. Emma Collins",
-    issuedAt: "2025-02-18",
-    grade: "A (94%)",
-    hours: 20,
-    status: "issued",
-    pdfUrl: "/api/certificates/c1/pdf",
-    shareUrl: "/student/certificates/c1",
-  },
-  {
-    id: "c2",
-    certificateNumber: "CERT-2024-0124",
-    courseId: "course-3",
-    courseTitle: "Data Analytics for Business Leaders",
-    category: "Analytics · Intermediate",
-    instructor: "Sarah Khan",
-    issuedAt: "2024-12-05",
-    grade: "Completed",
-    hours: 18,
-    status: "issued",
-    pdfUrl: "/api/certificates/c2/pdf",
-    shareUrl: "/student/certificates/c2",
-  },
-  {
-    id: "c3",
-    certificateNumber: "CERT-2024-0099",
-    courseId: "course-5",
-    courseTitle: "Modern React & TypeScript Fundamentals",
-    category: "Development · Beginner",
-    instructor: "John Miller",
-    issuedAt: "2024-09-21",
-    grade: "B+ (88%)",
-    hours: 15,
-    status: "issued",
-    pdfUrl: "/api/certificates/c3/pdf",
-    shareUrl: "/student/certificates/c3",
-  },
-];
+function safeNumber(n: unknown, fallback = 0) {
+  const v = typeof n === "number" ? n : Number(n);
+  return Number.isFinite(v) ? v : fallback;
+}
 
 function formatDate(val: string) {
   const d = new Date(val);
@@ -99,15 +96,130 @@ function statusBadge(status: CertificateStatus) {
   }
 }
 
+function normalizeStatus(s?: string): CertificateStatus {
+  if (s === "processing" || s === "revoked") return s;
+  return "issued";
+}
+
+function pickCourseId(c: ApiCertificate) {
+  if (typeof c.courseId === "object" && c.courseId?._id) return c.courseId._id;
+  return typeof c.courseId === "string" ? c.courseId : "";
+}
+
+function pickCourseTitle(c: ApiCertificate) {
+  if (typeof c.courseId === "object" && c.courseId?.title)
+    return c.courseId.title;
+  return "Untitled Course";
+}
+
+function pickCategory(c: ApiCertificate) {
+  if (typeof c.courseId !== "object" || !c.courseId) return "Uncategorized";
+  const cat = c.courseId.categoryId;
+  if (typeof cat === "object" && cat?.title) return cat.title;
+  return "Uncategorized";
+}
+
+function pickInstructor(c: ApiCertificate) {
+  if (typeof c.courseId !== "object" || !c.courseId)
+    return "Unknown Instructor";
+  const ins = c.courseId.instructorId;
+  if (typeof ins === "object" && ins) {
+    const name = `${ins.firstName ?? ""} ${ins.lastName ?? ""}`.trim();
+    return name || ins.email || "Unknown Instructor";
+  }
+  return "Unknown Instructor";
+}
+
+function pickHours(c: ApiCertificate) {
+  if (typeof c.courseId !== "object" || !c.courseId) return 0;
+  const minutes = safeNumber(c.courseId.durationMinutes, 0);
+  return minutes ? Math.max(1, Math.round(minutes / 60)) : 0;
+}
+
+function mapApiToUi(cert: ApiCertificate): Certificate {
+  const id =
+    cert._id ||
+    cert.certificateNumber ||
+    `${cert.userId}-${pickCourseId(cert)}`;
+  const issuedAt = cert.issuedAt || new Date().toISOString();
+
+  // If you store grade/score in metadata, map it here.
+  const grade =
+    cert?.metadata?.grade ||
+    cert?.metadata?.score ||
+    cert?.metadata?.result ||
+    undefined;
+
+  const shareUrl = cert.verifiableUrl
+    ? cert.verifiableUrl // if it is already a full url, we will use as-is during share
+    : `/student/certificates/${id}`;
+
+  return {
+    id,
+    certificateNumber: cert.certificateNumber || `CERT-${id}`,
+    courseId: pickCourseId(cert),
+    courseTitle: pickCourseTitle(cert),
+    category: pickCategory(cert),
+    instructor: pickInstructor(cert),
+    issuedAt,
+    grade: typeof grade === "string" ? grade : undefined,
+    hours: pickHours(cert),
+    status: normalizeStatus(cert.status),
+    pdfUrl: cert.pdfUrl || cert?.metadata?.pdfUrl || undefined,
+    shareUrl,
+  };
+}
+
 export default function StudentCertificatesPage() {
   const router = useRouter();
+  const { currentUser } = useAuth();
+
+  const userId = (currentUser as any)?.id || (currentUser as any)?._id;
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CertificateStatus>(
     "all"
   );
 
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchCertificates = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await apiRequest.get("/certificates", {
+          params: { userId },
+        });
+        const raw = res.data;
+
+        const apiItems: ApiCertificate[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.items)
+          ? raw.items
+          : [];
+
+        const mapped = apiItems.map(mapApiToUi);
+        setCertificates(mapped);
+      } catch (err: any) {
+        console.error("Failed to load certificates", err);
+        setError("Failed to load certificates. Please try again later.");
+        setCertificates([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCertificates();
+  }, [userId]);
+
   const filtered = useMemo(() => {
-    let list = [...MOCK_CERTIFICATES];
+    let list = [...certificates];
 
     if (statusFilter !== "all") {
       list = list.filter((c) => c.status === statusFilter);
@@ -124,17 +236,16 @@ export default function StudentCertificatesPage() {
       );
     }
 
-    // newest issued first
     list.sort(
       (a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()
     );
 
     return list;
-  }, [search, statusFilter]);
+  }, [search, statusFilter, certificates]);
 
-  const totalCertificates = MOCK_CERTIFICATES.length;
-  const totalHours = MOCK_CERTIFICATES.reduce((sum, c) => sum + c.hours, 0);
-  const latest = [...MOCK_CERTIFICATES].sort(
+  const totalCertificates = certificates.length;
+  const totalHours = certificates.reduce((sum, c) => sum + (c.hours || 0), 0);
+  const latest = [...certificates].sort(
     (a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()
   )[0];
 
@@ -145,22 +256,33 @@ export default function StudentCertificatesPage() {
 
   const handleDownloadPdf = (c: Certificate) => {
     if (typeof window === "undefined") return;
+
     if (c.pdfUrl) {
       window.open(c.pdfUrl, "_blank");
-    } else {
-      // later replace with toast
-      alert("PDF download is not configured yet.");
+      return;
     }
+
+    // If you want to download via verifiableUrl, uncomment:
+    // if (c.shareUrl && /^https?:\/\//.test(c.shareUrl)) {
+    //   window.open(c.shareUrl, "_blank");
+    //   return;
+    // }
+
+    alert("PDF download is not configured yet.");
   };
 
   const handleShare = async (c: Certificate) => {
     if (typeof window === "undefined") return;
-    const base =
-      window.location.origin ||
-      (typeof location !== "undefined" ? location.origin : "");
-    const url = c.shareUrl
-      ? `${base}${c.shareUrl.startsWith("/") ? c.shareUrl : `/${c.shareUrl}`}`
-      : `${base}/student/certificates/${c.id}`;
+
+    const base = window.location.origin;
+    const url =
+      c.shareUrl && /^https?:\/\//.test(c.shareUrl)
+        ? c.shareUrl
+        : `${base}${
+            c.shareUrl?.startsWith("/")
+              ? c.shareUrl
+              : `/student/certificates/${c.id}`
+          }`;
 
     if (navigator.share) {
       try {
@@ -170,7 +292,7 @@ export default function StudentCertificatesPage() {
           url,
         });
       } catch {
-        // user cancelled; ignore
+        // ignore
       }
     } else if (navigator.clipboard) {
       try {
@@ -189,6 +311,7 @@ export default function StudentCertificatesPage() {
       <Head>
         <title>Certificates · Student</title>
       </Head>
+
       <StudentLayout>
         <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
           {/* Header */}
@@ -223,7 +346,7 @@ export default function StudentCertificatesPage() {
               <div>
                 <p className="text-xs text-slate-500">Total Certificates</p>
                 <p className="mt-1 text-xl font-semibold">
-                  {totalCertificates}
+                  {loading ? "…" : totalCertificates}
                 </p>
               </div>
               <Award className="h-6 w-6 text-slate-400" />
@@ -233,7 +356,9 @@ export default function StudentCertificatesPage() {
                 <p className="text-xs text-slate-500">
                   Certified Learning Hours
                 </p>
-                <p className="mt-1 text-xl font-semibold">{totalHours} hrs</p>
+                <p className="mt-1 text-xl font-semibold">
+                  {loading ? "…" : `${totalHours} hrs`}
+                </p>
               </div>
               <BookOpen className="h-6 w-6 text-slate-400" />
             </div>
@@ -241,7 +366,7 @@ export default function StudentCertificatesPage() {
               <div>
                 <p className="text-xs text-slate-500">Latest Certificate</p>
                 <p className="mt-1 text-xs font-medium text-slate-900 line-clamp-2">
-                  {latest ? latest.courseTitle : "—"}
+                  {loading ? "…" : latest ? latest.courseTitle : "—"}
                 </p>
               </div>
               <BadgeCheck className="h-6 w-6 text-slate-400" />
@@ -279,12 +404,20 @@ export default function StudentCertificatesPage() {
                 );
               })}
               <span className="ml-auto text-[11px] text-slate-500">
-                Showing {filtered.length} of {MOCK_CERTIFICATES.length}{" "}
-                certificates
+                Showing {loading ? "…" : filtered.length} of{" "}
+                {loading ? "…" : certificates.length} certificates
               </span>
             </div>
 
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="py-10 text-center text-sm text-slate-500">
+                Loading certificates...
+              </div>
+            ) : error ? (
+              <div className="py-10 text-center text-sm text-red-600">
+                {error}
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="py-10 text-center text-sm text-slate-500">
                 No certificates found for the selected filters.
               </div>

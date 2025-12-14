@@ -20,15 +20,15 @@ const navItems: NavItem[] = [
     ],
   },
 
-  {
-    title: "Enrollments",
-    icon: <LayoutList className="h-4 w-4" />,
-    href: "/student/enrollments",
-    children: [
-      { title: "My Enrollments", href: "/student/enrollments" },
-      /* { title: "Pending Requests", href: "/student/enrollments/requests" }, */
-    ],
-  },
+  // {
+  //   title: "Enrollments",
+  //   icon: <LayoutList className="h-4 w-4" />,
+  //   href: "/student/enrollments",
+  //   children: [
+  //     { title: "My Enrollments", href: "/student/enrollments" },
+  //     /* { title: "Pending Requests", href: "/student/enrollments/requests" }, */
+  //   ],
+  // },
   // {
   //   title: "Billing & Payments",
   //   icon: <DollarSign className="h-4 w-4" />,
