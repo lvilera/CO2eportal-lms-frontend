@@ -1,12 +1,5 @@
 import type { NavItem } from "@/components/ui/NavItem";
-import {
-  BarChart3,
-  BookOpen,
-  LayoutList,
-  Settings,
-  Trophy,
-  Users,
-} from "lucide-react";
+import { BarChart3, BookOpen, LayoutList, Trophy, Users } from "lucide-react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 
@@ -24,7 +17,7 @@ const navItems: NavItem[] = [
       { title: "All Courses", href: "/instructor/courses" },
       { title: "Create Course", href: "/instructor/courses/new" },
       // { title: "Modules & Lessons", href: "/instructor/courses/modules" },
-      { title: "Assignments", href: "/instructor/courses/assignments" },
+      // { title: "Assignments", href: "/instructor/courses/assignments" },
     ],
   },
   {
@@ -33,8 +26,7 @@ const navItems: NavItem[] = [
     href: "/instructor/students",
     children: [
       { title: "Enrolled Students", href: "/instructor/students" },
-      { title: "Student Groups", href: "/instructor/students/groups" },
-      { title: "Messages", href: "/instructor/students/messages" },
+      { title: "Announcements", href: "/instructor/announcements" },
     ],
   },
   {
@@ -44,7 +36,6 @@ const navItems: NavItem[] = [
     children: [
       { title: "Course Analytics", href: "/instructor/analytics/courses" },
       { title: "Quiz Performance", href: "/instructor/analytics/quizzes" },
-      { title: "Engagement", href: "/instructor/analytics/engagement" },
     ],
   },
   // {
@@ -63,14 +54,14 @@ const navItems: NavItem[] = [
     href: "/instructor/certificates",
     children: [
       { title: "Issued Certificates", href: "/instructor/certificates" },
-      { title: "Badges", href: "/instructor/certificates/badges" },
+      // { title: "Badges", href: "/instructor/certificates/badges" },
     ],
   },
-  {
-    title: "Settings",
-    href: "/instructor/settings",
-    icon: <Settings className="h-4 w-4" />,
-  },
+  // {
+  //   title: "Settings",
+  //   href: "/instructor/settings",
+  //   icon: <Settings className="h-4 w-4" />,
+  // },
 ];
 
 export default function InstructorLayout({

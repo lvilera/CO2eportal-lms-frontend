@@ -5,8 +5,6 @@ import {
   DollarSign,
   Layers,
   LayoutList,
-  Settings,
-  UserCog,
   Users,
 } from "lucide-react";
 import Header from "./Header";
@@ -49,7 +47,7 @@ const navItems: NavItem[] = [
     href: "/admin/enrollments",
     children: [
       { title: "All Enrollments", href: "/admin/enrollments" },
-      { title: "Approvals/Requests", href: "/admin/enrollments/requests" },
+      // { title: "Approvals/Requests", href: "/admin/enrollments/requests" },
     ],
   },
   {
@@ -58,8 +56,8 @@ const navItems: NavItem[] = [
     href: "/admin/payments",
     children: [
       { title: "Transactions", href: "/admin/payments/transactions" },
-      { title: "Payouts", href: "/admin/payments/payouts" },
-      { title: "Coupons", href: "/admin/payments/coupons" },
+      // { title: "Payouts", href: "/admin/payments/payouts" },
+      // { title: "Coupons", href: "/admin/payments/coupons" },
     ],
   },
   {
@@ -72,16 +70,11 @@ const navItems: NavItem[] = [
       { title: "Course Performance", href: "/admin/reports/courses" },
     ],
   },
-  {
-    title: "Settings",
-    href: "/admin/settings",
-    icon: <Settings className="h-4 w-4" />,
-  },
-  {
-    title: "Roles",
-    href: "/admin/roles",
-    icon: <UserCog className="h-4 w-4" />,
-  },
+  // {
+  //   title: "Settings",
+  //   href: "/admin/settings",
+  //   icon: <Settings className="h-4 w-4" />,
+  // },
 ];
 
 export default function AdminLayout({
